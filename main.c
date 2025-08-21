@@ -29,6 +29,7 @@ int main(int argc, char* argv[]){
 
     //gemm usage
     // \alpha * A_{mxk} * B_{kxn} + \beta * C_{mxn}
+    // \alpha * C{mxn} * D{nxk} + \beta * E{mxk}
     float counter = 0;
     float *A = (float *) malloc(M*K*sizeof(float));
     for(int i=0; i<M; i++){
@@ -50,6 +51,19 @@ int main(int argc, char* argv[]){
     float* C_native = (float *) malloc(M*N*sizeof(float));
     float* C_naive = (float *) malloc(M*N*sizeof(float));
 
+    counter = 0;
+    float *D = (float *) malloc(N*K*sizeof(float));
+    for(int i=0; i<N; i++){
+        for (int j=0; j<K; j++){
+            D[K*i+j] = (float) counter;//((float) rand() / (float)RAND_MAX) * (rand_max-rand_min) + rand_min;
+	        counter = counter + 1;
+	    }
+    }
+
+    float* E_native = (float *) malloc(M*K*sizeof(float));
+    float* E_naive = (float *) malloc(M*K*sizeof(float));
+    clock_t tic = clock();
+
     // **** Native implementation **** //
     // native_start();
     gemm(M, N, K,
@@ -61,6 +75,22 @@ int main(int argc, char* argv[]){
     // native_stop();
     // **** Native implementation **** //
 
+    // **** Native implementation **** //
+    // native_start();
+    gemm(M, K, N,
+        alpha,
+        C_native, /*lda*/ N,
+        D, /*ldb*/ K,
+        beta,
+        E_native, /*ldc*/ K);
+    // native_stop();
+    // **** Native implementation **** //
+
+    
+    clock_t toc = clock();
+
+    printf("Elapsed: %f seconds\n", (double)(toc - tic) / CLOCKS_PER_SEC);
+
     // **** Naive implementation **** //
     // naive_start();
     for (int i = 0; i < M; i++) {
@@ -71,13 +101,21 @@ int main(int argc, char* argv[]){
                 C_naive[i*N+j] += alpha * A[i*K+k] * B[k*N+j];
         }
     }
+    for (int i = 0; i < M; i++) {
+        for (int j = 0; j < K; j++)
+            E_naive[i*K+j] *= beta;
+        for (int k = 0; k < N; k++) {
+            for (int j = 0; j < K; j++)
+                E_naive[i*K+j] += alpha * C_naive[i*N+k] * D[k*K+j];
+        }
+    }
     // naive_stop();
     // **** Naive implementation **** //
 
     float rel_diff;
     for(int i=0; i<M; i++){
-        for(int j = 0; j<N; j++){
-            rel_diff = fabsf(C_native[i*N+j] - C_naive[i*N+j]) / (fabsf(C_naive[i*N+j]) + 1e-8f);
+        for(int j = 0; j<K; j++){
+            rel_diff = fabsf(E_native[i*K+j] - E_naive[i*K+j]) / (fabsf(E_naive[i*K+j]) + 1e-8f);
             if (rel_diff > 1e-4)
                 return 1;
         }
