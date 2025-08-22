@@ -1,8 +1,8 @@
 # Compiler, Simmulator and debbuger
 CC := clang -target riscv64-unknown-linux-gnu
 AS := clang
-QEMU := /home/user/eldorado-teiu/simulators/qemu-teiu/build/qemu-riscv64
-GDB := riscv64-unknown-linux-gnu-gdb
+QEMU := echo
+GDB := gdb
 
 # Compiler and linker flags
 # Read values from JSON
@@ -47,6 +47,9 @@ ifeq ($(NEED_KERNELDIR),yes)
 				-DGEMM_P=$(GEMM_P) \
 				-DGEMM_Q=$(GEMM_Q) \
 				-DGEMM_R=$(GEMM_R)
+		ifneq ($(DEBUG), )
+			CFLAGS += -DDEBUG
+		endif
 
 		SRCS =  main.c \
 			driver/interface.c \

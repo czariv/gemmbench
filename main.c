@@ -88,8 +88,9 @@ int main(int argc, char* argv[]){
 
     
     clock_t toc = clock();
+    double native = (double)(tic - toc);
 
-    printf("Elapsed: %f seconds\n", (double)(toc - tic) / CLOCKS_PER_SEC);
+    tic = clock();
 
     // **** Naive implementation **** //
     // naive_start();
@@ -111,7 +112,8 @@ int main(int argc, char* argv[]){
     }
     // naive_stop();
     // **** Naive implementation **** //
-
+    toc = clock();
+    double naive = (double)(tic - toc);
     float rel_diff;
     for(int i=0; i<M; i++){
         for(int j = 0; j<K; j++){
@@ -120,6 +122,55 @@ int main(int argc, char* argv[]){
                 return 1;
         }
     }
+
+    #ifdef DEBUG
+    printf("======================= DEBUG =======================\n");
+    printf("A =\n");
+    for(int i=0; i<M; i++){
+        for (int j=0; j<K; j++){
+            if(j>0)
+                printf(", ");
+            printf("%d", (int)A[K*i + j]);
+	    }
+        printf("\n");
+    }
+    printf("-----------------------------------------------------\n");
+    printf("B =\n");
+    for(int i=0; i<K; i++){
+        for (int j=0; j<N; j++){
+            if(j>0)
+                printf(", ");
+            printf("%d", (int)B[N*i + j]);
+	    }
+        printf("\n");
+    }
+    printf("-----------------------------------------------------\n");
+    printf("C native =\n");
+    for(int i=0; i<M; i++){
+        for (int j=0; j<N; j++){
+            if(j>0)
+                printf(", ");
+            printf("%d", (int)C_native[N*i + j]);
+	    }
+        printf("\n");
+    }
+    printf("-----------------------------------------------------\n");
+    printf("C naive =\n");
+    for(int i=0; i<M; i++){
+        for (int j=0; j<N; j++){
+            if(j>0)
+                printf(", ");
+            printf("%d", (int)C_naive[N*i + j]);
+	    }
+        printf("\n");
+    }
+
+    printf("================== EXECUTION TIMES ==================\n");
+
+    printf("Elapsed Native: %f seconds\n", (double)(native) / CLOCKS_PER_SEC);
+
+    printf("Elapsed Naive: %f seconds\n", (double)(naive) / CLOCKS_PER_SEC);
+    #endif
 
     return 0;
 }
