@@ -1,7 +1,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "interface.h"
+#include "interface_pre.h"
 #include <stdint.h>
 #include <math.h>
 
@@ -66,7 +66,7 @@ int main(int argc, char* argv[]){
 
     // **** Native implementation **** //
     // native_start();
-    gemm(M, N, K,
+    gemm_pre(M, N, K,
         alpha,
         A, /*lda*/ K,
         B, /*ldb*/ N,
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]){
 
     
     clock_t toc = clock();
-    double native = (double)(tic - toc);
+    double native = (double)(toc - tic);
 
     tic = clock();
 
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]){
     // naive_stop();
     // **** Naive implementation **** //
     toc = clock();
-    double naive = (double)(tic - toc);
+    double naive = (double)(toc - tic);
     float rel_diff;
     for(int i=0; i<M; i++){
         for(int j = 0; j<K; j++){

@@ -54,10 +54,15 @@ ifeq ($(NEED_KERNELDIR),yes)
 		SRCS =  main.c \
 			driver/interface.c \
 			driver/level3.c \
+			driver/interface_pre.c \
+			driver/level3_pre.c \
 			$(KERNELDIR)/gemm_icopy.c \
 			$(KERNELDIR)/gemm_ocopy.c \
 			$(KERNELDIR)/gemm_kernel_16x8.c \
-			$(KERNELDIR)/gemm_beta.c
+			$(KERNELDIR)/gemm_beta.c \
+			$(KERNELDIR)/gemm_icopy_pre.c \
+			$(KERNELDIR)/gemm_ocopy_pre.c \
+			$(KERNELDIR)/gemm_kernel_16x8_pre.c
 
 		OBJS = $(SRCS:.c=.o) 
 	endif

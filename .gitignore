@@ -1,2 +1,11 @@
 # Object files
 *.o
+
+# VSCode configurations
+.vscode/*
+
+# Compile Commands
+compile_commands.json
+
+# Cache
+.cache/*
