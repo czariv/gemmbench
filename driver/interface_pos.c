@@ -1,15 +1,15 @@
 #include <stdlib.h>
-#include "interface_pre.h"
+#include "interface_pos.h"
 
 #ifndef COLMAJOR
-void gemm_pre(int M, int N, int K,
+void gemm_pos(int M, int N, int K,
            float alpha,
            float *a, int ldA,
            float *b, int ldB,
            float beta,
            float *c, int ldC){
 #else
-void gemm_pre(int N, int M, int K,
+void gemm_pos(int N, int M, int K,
            float alpha,
            float *b, int ldB,
            float *a, int ldA,
@@ -42,7 +42,7 @@ void gemm_pre(int N, int M, int K,
     sa = (float *)( buffer );
     sb = (float *)( (long) sa + (BUFFER_SIZE/SIZE)/2 );
 
-    gemm_tiling_pre(&args, NULL, NULL, sa, sb);
+    gemm_tiling_pos(&args, NULL, NULL, sa, sb);
 
     free(buffer);
 

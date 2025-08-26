@@ -56,12 +56,13 @@ ifeq ($(NEED_KERNELDIR),yes)
 			driver/level3.c \
 			driver/interface_pre.c \
 			driver/level3_pre.c \
+			driver/interface_pos.c \
+			driver/level3_pos.c \
 			$(KERNELDIR)/gemm_icopy.c \
+			$(KERNELDIR)/gemm_icopy_pos.c \
 			$(KERNELDIR)/gemm_ocopy.c \
 			$(KERNELDIR)/gemm_kernel_16x8.c \
 			$(KERNELDIR)/gemm_beta.c \
-			$(KERNELDIR)/gemm_icopy_pre.c \
-			$(KERNELDIR)/gemm_ocopy_pre.c \
 			$(KERNELDIR)/gemm_kernel_16x8_pre.c
 
 		OBJS = $(SRCS:.c=.o) 
