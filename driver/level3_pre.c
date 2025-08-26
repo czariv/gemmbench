@@ -8,9 +8,9 @@
     BETA, NULL, 0, NULL, 0, \
     (float *)(C) + ((N_FROM) + (M_FROM) * (LDC)), LDC)
 
-#define ICOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ITCOPY_PRE(M, N, (float *)(A) + ((Y) + (X) * (LDA)), LDA, BUFFER);
+#define ICOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ITCOPY(M, N, (float *)(A) + ((Y) + (X) * (LDA)), LDA, BUFFER);
 
-#define OCOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ONCOPY_PRE(M, N, (float *)(A) + ((X) + (Y) * (LDA)), LDA, BUFFER);
+#define OCOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ONCOPY(M, N, (float *)(A) + ((X) + (Y) * (LDA)), LDA, BUFFER);
 
 #define KERNEL_OPERATION(M, N, K, ALPHA, SA, SB, C, LDC, X, Y) \
 	KERNEL_FUNC_PRE(M, N, K, ALPHA, SA, SB, (float *)(C) + ((X) + (Y) * LDC), LDC)
@@ -161,7 +161,7 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // kernel_start();
-                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, ldc, is, js);
+                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, ldc, is * min_j, js);
                 // kernel_stop();
                 // **** Native implementation **** //
 

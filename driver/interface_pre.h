@@ -41,8 +41,6 @@
 
 #define COLMAJOR 1
 #define KERNEL_FUNC_PRE gemm_kernel_pre
-#define GEMM_ITCOPY_PRE gemm_icopy_pre
-#define GEMM_ONCOPY_PRE gemm_ocopy_pre
 
 
 #include "interface.h"
@@ -58,6 +56,4 @@ int gemm_tiling_pre(arg_t *args,
            long *range_m, long *range_n, 
            float *sa, float *sb);
 
-int gemm_icopy_pre(long m, long n, float *a, long lda, float *b);
-int gemm_ocopy_pre(long m, long n, float *a, long lda, float *b);
 int gemm_kernel_pre(long M, long N, long K, float alpha, float* A, float* B, float* C, long ldc);

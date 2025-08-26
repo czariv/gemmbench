@@ -48,7 +48,6 @@ int gemm_kernel_pre(long M, long N, long K, float alpha, float* A, float* B, flo
     long m_top = 0;
     long n_top = 0;
 
-
     // -- MAIN PASS
 
     for (long j=0; j<N/8; j+=1) {
@@ -124,22 +123,22 @@ int gemm_kernel_pre(long M, long N, long K, float alpha, float* A, float* B, flo
             }
 
 
-            long ci=n_top*ldc+m_top;
+            long ci=n_top*ldc+m_top*(M/16);
 
             vfloat32m1_t c0 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
-            vfloat32m1_t c1 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += ldc-gvl*1;
+            vfloat32m1_t c1 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
             vfloat32m1_t c2 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
-            vfloat32m1_t c3 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += ldc-gvl*1;
+            vfloat32m1_t c3 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
             vfloat32m1_t c4 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
-            vfloat32m1_t c5 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += ldc-gvl*1;
+            vfloat32m1_t c5 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
             vfloat32m1_t c6 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
-            vfloat32m1_t c7 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += ldc-gvl*1;
+            vfloat32m1_t c7 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
             vfloat32m1_t c8 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
-            vfloat32m1_t c9 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += ldc-gvl*1;
+            vfloat32m1_t c9 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
             vfloat32m1_t c10 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
-            vfloat32m1_t c11 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += ldc-gvl*1;
+            vfloat32m1_t c11 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
             vfloat32m1_t c12 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
-            vfloat32m1_t c13 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += ldc-gvl*1;
+            vfloat32m1_t c13 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
             vfloat32m1_t c14 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
             vfloat32m1_t c15 = __riscv_vle32_v_f32m1( &C[ci], gvl);
             c0 = __riscv_vfmacc_vf_f32m1( c0, alpha, result0, gvl );
@@ -159,22 +158,22 @@ int gemm_kernel_pre(long M, long N, long K, float alpha, float* A, float* B, flo
             c14 = __riscv_vfmacc_vf_f32m1( c14, alpha, result14, gvl );
             c15 = __riscv_vfmacc_vf_f32m1( c15, alpha, result15, gvl );
 
-            ci=n_top*ldc+m_top;
+            ci=n_top*ldc+m_top*(M/16);
 
             __riscv_vse32_v_f32m1( &C[ci], c0, gvl); ci += gvl;
-            __riscv_vse32_v_f32m1( &C[ci], c1, gvl); ci += ldc-gvl*1;
+            __riscv_vse32_v_f32m1( &C[ci], c1, gvl); ci += gvl;
             __riscv_vse32_v_f32m1( &C[ci], c2, gvl); ci += gvl;
-            __riscv_vse32_v_f32m1( &C[ci], c3, gvl); ci += ldc-gvl*1;
+            __riscv_vse32_v_f32m1( &C[ci], c3, gvl); ci += gvl;
             __riscv_vse32_v_f32m1( &C[ci], c4, gvl); ci += gvl;
-            __riscv_vse32_v_f32m1( &C[ci], c5, gvl); ci += ldc-gvl*1;
+            __riscv_vse32_v_f32m1( &C[ci], c5, gvl); ci += gvl;
             __riscv_vse32_v_f32m1( &C[ci], c6, gvl); ci += gvl;
-            __riscv_vse32_v_f32m1( &C[ci], c7, gvl); ci += ldc-gvl*1;
+            __riscv_vse32_v_f32m1( &C[ci], c7, gvl); ci += gvl;
             __riscv_vse32_v_f32m1( &C[ci], c8, gvl); ci += gvl;
-            __riscv_vse32_v_f32m1( &C[ci], c9, gvl); ci += ldc-gvl*1;
+            __riscv_vse32_v_f32m1( &C[ci], c9, gvl); ci += gvl;
             __riscv_vse32_v_f32m1( &C[ci], c10, gvl); ci += gvl;
-            __riscv_vse32_v_f32m1( &C[ci], c11, gvl); ci += ldc-gvl*1;
+            __riscv_vse32_v_f32m1( &C[ci], c11, gvl); ci += gvl;
             __riscv_vse32_v_f32m1( &C[ci], c12, gvl); ci += gvl;
-            __riscv_vse32_v_f32m1( &C[ci], c13, gvl); ci += ldc-gvl*1;
+            __riscv_vse32_v_f32m1( &C[ci], c13, gvl); ci += gvl;
             __riscv_vse32_v_f32m1( &C[ci], c14, gvl); ci += gvl;
             __riscv_vse32_v_f32m1( &C[ci], c15, gvl);
             m_top += 16;
