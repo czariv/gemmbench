@@ -123,7 +123,7 @@ int gemm_kernel_pre(long M, long N, long K, float alpha, float* A, float* B, flo
             }
 
 
-            long ci=n_top*ldc+m_top*(M/16);
+            long ci=n_top*ldc/8+m_top*M;
 
             vfloat32m1_t c0 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
             vfloat32m1_t c1 = __riscv_vle32_v_f32m1( &C[ci], gvl); ci += gvl;
@@ -158,7 +158,7 @@ int gemm_kernel_pre(long M, long N, long K, float alpha, float* A, float* B, flo
             c14 = __riscv_vfmacc_vf_f32m1( c14, alpha, result14, gvl );
             c15 = __riscv_vfmacc_vf_f32m1( c15, alpha, result15, gvl );
 
-            ci=n_top*ldc+m_top*(M/16);
+            ci=n_top*ldc/8+m_top*M;
 
             __riscv_vse32_v_f32m1( &C[ci], c0, gvl); ci += gvl;
             __riscv_vse32_v_f32m1( &C[ci], c1, gvl); ci += gvl;

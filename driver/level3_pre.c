@@ -77,9 +77,9 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
     l2size = GEMM_P * GEMM_Q;
 
-    for(js = n_from; js < n_to; js += GEMM_R){
+    for(js = n_from; js < n_to; js += GEMM_R_PRE){
         min_j = n_to - js;
-        if (min_j > GEMM_R) min_j = GEMM_R;
+        if (min_j > GEMM_R_PRE) min_j = GEMM_R_PRE;
 
         for(ls = 0; ls < k; ls += min_l){
 
@@ -137,7 +137,7 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // kernel_start();
-                KERNEL_OPERATION(min_i, min_jj, min_l, alpha, sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, ldc, m_from, jjs);
+                KERNEL_OPERATION(min_i, min_jj, min_l, alpha, sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, ldc, m_from, js/GEMM_R_PRE * n_to + (jjs%128)/8);
                 // kernel_stop();
                 // **** Native implementation **** //
 
@@ -161,7 +161,7 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // kernel_start();
-                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, ldc, is * min_j, js);
+                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, ldc, is * min_j, js/GEMM_R_PRE * n_to);
                 // kernel_stop();
                 // **** Native implementation **** //
 

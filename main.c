@@ -82,8 +82,6 @@ int main(int argc, char* argv[]){
     //     counter++;
     // }
 
-    clock_t toc = clock();
-
     // **** Native implementation **** //
     // native_start();
     gemm_pos(M, K, N,
@@ -96,7 +94,7 @@ int main(int argc, char* argv[]){
     // **** Native implementation **** //
 
     
-    // clock_t toc = clock();
+    clock_t toc = clock();
     
     double native = (double)(toc - tic);
 
@@ -117,7 +115,7 @@ int main(int argc, char* argv[]){
     //     C_native[i] = counter;
     //     counter++;
     // }
-    toc = clock();
+
     // **** Native implementation **** //
     // native_start();
     gemm(M, K, N,
@@ -129,8 +127,7 @@ int main(int argc, char* argv[]){
     // native_stop();
     // **** Native implementation **** //
 
-    
-    
+    toc = clock();
 
     double native_og = (double)(toc - tic);
 
@@ -205,11 +202,11 @@ int main(int argc, char* argv[]){
     else if ((N<1000)&&(M<1000)&&(K<1000)) {
         FILE *file_nat_c = fopen("c_native.csv","w");
         printf("C native = c_native.csv\n");
-        for(int i=0; i<128; i++){
-            for (int j=0; j<(M*N)/128; j++){
+        for(int i=0; i<(M*N)/128; i++){
+            for (int j=0; j<128; j++){
                 if(j>0)
                     fprintf(file_nat_c, ",");
-                fprintf(file_nat_c, "%.2f", C_native[i + 128*j]);
+                fprintf(file_nat_c, "%.2f", C_native[128*i + j]);
             }
             fprintf(file_nat_c, "\n");
         }

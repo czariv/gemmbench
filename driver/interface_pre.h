@@ -23,8 +23,8 @@
     #define GEMM_Q 128
 #endif
 
-#ifndef GEMM_R
-    #define GEMM_R 16384
+#ifndef GEMM_R_PRE
+    #define GEMM_R_PRE 128
 #endif
 
 #ifndef BUFFER_SIZE

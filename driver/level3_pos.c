@@ -1,5 +1,4 @@
 #include "interface_pos.h"
-#include <stdio.h>
 #include <stdlib.h>
 
 #define COMPSIZE 1
@@ -115,7 +114,7 @@ int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
             // **** Native implementation **** //
             // icopy_start();
-            ICOPY_OPERATION(min_l, min_i, a, lda, ls, m_from, sa);
+            ICOPY_OPERATION(min_l, min_i, a, lda, ls/min_l * k, m_from, sa);
             // icopy_stop();
             // **** Native implementation **** //
 
@@ -156,17 +155,7 @@ int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // icopy_start();
-                ICOPY_OPERATION(min_l, min_i, a, lda, ls, is * min_j, sa);
-
-                FILE *file_sa = fopen("sa_after.csv","w");
-                for (int bubu = 0; bubu < min_l; bubu++){
-                    for (int papa = 0; papa < min_i; papa++){
-                        if (papa != 0)
-                            fprintf(file_sa, ",");
-                        fprintf(file_sa, "%d", (int) sa[bubu * min_i + papa]);
-                    }
-                    fprintf(file_sa, "\n");
-                }
+                ICOPY_OPERATION(min_l, min_i, a, lda, ls/min_l * k, is * min_i, sa);
 
                 // icopy_stop();
                 // **** Native implementation **** //
