@@ -18,7 +18,6 @@ void gemm_pos(int N, int M, int K,
 #endif
     arg_t args;
     float *buffer;
-    float *sa, *sb;
 
     args.m = M;
     args.n = N;
@@ -38,11 +37,8 @@ void gemm_pos(int N, int M, int K,
     if ((args.m == 0) || (args.n == 0)) return;
 
     buffer = (float *) malloc( BUFFER_SIZE );
-    
-    sa = (float *)( buffer );
-    sb = (float *)( (long) sa + (BUFFER_SIZE/SIZE)/2 );
 
-    gemm_tiling_pos(&args, NULL, NULL, sa, sb);
+    gemm_tiling_pos(&args, NULL, NULL, buffer);
 
     free(buffer);
 

@@ -39,12 +39,14 @@ int main(int argc, char* argv[]){
 	    }
     }
 
-    counter = 0;
+    counter = 1;
     float *B = (float *) malloc(K*N*sizeof(float));
     for(int i=0; i<K; i++){
         for (int j=0; j<N; j++){
-            B[N*i+j] = (float) counter;//((float)rand() / (float)RAND_MAX) * (rand_max-rand_min) + rand_min;
-            counter = counter + 1;
+            if(i == j)
+                B[N*i+j] = (float) counter;//((float)rand() / (float)RAND_MAX) * (rand_max-rand_min) + rand_min;
+            else
+                B[N*i+j] = (float) 0;
         }
     }
 
@@ -64,6 +66,8 @@ int main(int argc, char* argv[]){
     float* E_native = (float *) malloc(M*K*sizeof(float));
     float* E_native_og = (float *) malloc(M*K*sizeof(float));
     float* E_naive = (float *) malloc(M*K*sizeof(float));
+
+    clock_t toc, tuc;
     clock_t tic = clock();
 
     // **** Native implementation **** //
@@ -81,7 +85,7 @@ int main(int argc, char* argv[]){
     //     C_native[i] = counter;
     //     counter++;
     // }
-
+    toc = clock();
     // **** Native implementation **** //
     // native_start();
     gemm_pos(M, K, N,
@@ -93,10 +97,12 @@ int main(int argc, char* argv[]){
     // native_stop();
     // **** Native implementation **** //
 
-    
-    clock_t toc = clock();
-    
-    double native = (double)(toc - tic);
+    tuc = clock();
+
+    double native_first = (double)(toc - tic);
+    double native_second = (double)(tuc - toc);
+    double native = (double)(tuc - tic);
+
 
     tic = clock();
 
@@ -115,7 +121,7 @@ int main(int argc, char* argv[]){
     //     C_native[i] = counter;
     //     counter++;
     // }
-
+    toc = clock();
     // **** Native implementation **** //
     // native_start();
     gemm(M, K, N,
@@ -127,30 +133,32 @@ int main(int argc, char* argv[]){
     // native_stop();
     // **** Native implementation **** //
 
-    toc = clock();
+    tuc = clock();
 
-    double native_og = (double)(toc - tic);
+    double native_og_first = (double)(toc - tic);
+    double native_og_second = (double)(tuc - toc);
+    double native_og = (double)(tuc - tic);
 
     tic = clock();
 
     // **** Naive implementation **** //
     // naive_start();
-    for (int i = 0; i < M; i++) {
-        for (int j = 0; j < N; j++)
-            C_naive[i*N+j] *= beta;
-        for (int k = 0; k < K; k++) {
-            for (int j = 0; j < N; j++)
-                C_naive[i*N+j] += alpha * A[i*K+k] * B[k*N+j];
-        }
-    }
-    for (int i = 0; i < M; i++) {
-        for (int j = 0; j < K; j++)
-            E_naive[i*K+j] *= beta;
-        for (int k = 0; k < N; k++) {
-            for (int j = 0; j < K; j++)
-                E_naive[i*K+j] += alpha * C_naive[i*N+k] * D[k*K+j];
-        }
-    }
+    // for (int i = 0; i < M; i++) {
+    //     for (int j = 0; j < N; j++)
+    //         C_naive[i*N+j] *= beta;
+    //     for (int k = 0; k < K; k++) {
+    //         for (int j = 0; j < N; j++)
+    //             C_naive[i*N+j] += alpha * A[i*K+k] * B[k*N+j];
+    //     }
+    // }
+    // for (int i = 0; i < M; i++) {
+    //     for (int j = 0; j < K; j++)
+    //         E_naive[i*K+j] *= beta;
+    //     for (int k = 0; k < N; k++) {
+    //         for (int j = 0; j < K; j++)
+    //             E_naive[i*K+j] += alpha * C_naive[i*N+k] * D[k*K+j];
+    //     }
+    // }
     // naive_stop();
     // **** Naive implementation **** //
     toc = clock();
@@ -245,6 +253,11 @@ int main(int argc, char* argv[]){
         }
     }
     printf("================== EXECUTION TIMES ==================\n");
+    printf("Elapsed Native Changed First: %f seconds\n", (double)(native_first) / CLOCKS_PER_SEC);
+    printf("Elapsed Native Original First: %f seconds\n", (double)(native_og_first) / CLOCKS_PER_SEC);
+
+    printf("Elapsed Native Changed Second: %f seconds\n", (double)(native_second) / CLOCKS_PER_SEC);
+    printf("Elapsed Native Original Second: %f seconds\n", (double)(native_og_second) / CLOCKS_PER_SEC);
 
     printf("Elapsed Native Changed: %f seconds\n", (double)(native) / CLOCKS_PER_SEC);
 
@@ -256,7 +269,7 @@ int main(int argc, char* argv[]){
     float rel_diff;
     for(int i=0; i<M; i++){
         for(int j = 0; j<K; j++){
-            rel_diff = fabsf(E_native[i*K+j] - E_naive[i*K+j]) / (fabsf(E_naive[i*K+j]) + 1e-8f);
+            rel_diff = fabsf(E_native[i*K+j] - E_native_og[i*K+j]) / (fabsf(E_native_og[i*K+j]) + 1e-8f);
             if (rel_diff > 1e-4)
                 return 1;
         }

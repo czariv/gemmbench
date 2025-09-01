@@ -54,6 +54,6 @@ void gemm_pos(int M, int N, int K,
 
 int gemm_tiling_pos(arg_t *args, 
            long *range_m, long *range_n, 
-           float *sa, float *sb);
+           float *sb);
 
 int gemm_icopy_pos(long m, long n, float *a, long lda, float *b);

@@ -25,7 +25,7 @@
 #define N	args -> n
 #define K	args -> k
 
-int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sa, float *sb){
+int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sb){
     long k, lda, ldb, ldc;
     float alpha, beta;
     float *a, *b;
@@ -114,7 +114,7 @@ int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
             // **** Native implementation **** //
             // icopy_start();
-            ICOPY_OPERATION(min_l, min_i, a, lda, ls/min_l * k, m_from, sa);
+            //ICOPY_OPERATION(min_l, min_i, a, lda, ls/min_l * k, m_from, sa);
             // icopy_stop();
             // **** Native implementation **** //
 
@@ -137,7 +137,7 @@ int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // kernel_start();
-                KERNEL_OPERATION(min_i, min_jj, min_l, alpha, sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, ldc, m_from, jjs);
+                KERNEL_OPERATION(min_i, min_jj, min_l, alpha, a + lda * ls/min_l * k + m_from, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, ldc, m_from, jjs);
                 // kernel_stop();
                 // **** Native implementation **** //
 
@@ -155,14 +155,14 @@ int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // icopy_start();
-                ICOPY_OPERATION(min_l, min_i, a, lda, ls/min_l * k, is * min_i, sa);
+                //ICOPY_OPERATION(min_l, min_i, a, lda, ls/min_l * k, is * min_i, sa);
 
                 // icopy_stop();
                 // **** Native implementation **** //
 
                 // **** Native implementation **** //
                 // kernel_start();
-                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, ldc, is, js);
+                KERNEL_OPERATION(min_i, min_j, min_l, alpha, a + lda * ls/min_l * k + is * min_i, sb, c, ldc, is, js);
                 // kernel_stop();
                 // **** Native implementation **** //
 
