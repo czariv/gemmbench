@@ -137,7 +137,7 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // kernel_start();
-                KERNEL_OPERATION(min_i, min_jj, min_l, alpha, sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, ldc, m_from, js/GEMM_R_PRE * n_to + (jjs%128)/8);
+                KERNEL_OPERATION(min_i, min_jj, min_l, alpha, sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, ldc, m_from, js/GEMM_R_PRE * m_to + (jjs%128)/8);
                 // kernel_stop();
                 // **** Native implementation **** //
 
@@ -161,7 +161,7 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // kernel_start();
-                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, ldc, is * min_j, js/GEMM_R_PRE * n_to);
+                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, ldc, is * min_j, js/GEMM_R_PRE * m_to);
                 // kernel_stop();
                 // **** Native implementation **** //
 
