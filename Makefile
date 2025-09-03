@@ -1,8 +1,7 @@
 # Compiler, Simmulator and debbuger
-CC := clang -target riscv64-unknown-linux-gnu
+CC := clang
 AS := clang
-QEMU := /home/user/eldorado-teiu/simulators/qemu-teiu/build/qemu-riscv64
-GDB := riscv64-unknown-linux-gnu-gdb
+GDB := gdb
 
 # Compiler and linker flags
 # Read values from JSON
@@ -14,7 +13,6 @@ GEMM_R=$(shell jq -r 'tiling.gemm_r' $(CONFIG_FILE))
 
 # Pass them as compiler flags
 LDFLAGS += -static 
-QEMU_FLAGS = -cpu rv64,g=true,c=true,v=true,vext_spec=v1.0,vlen=256,elen=64
 
 ifneq ($(filter run gdb distclean,$(MAKECMDGOALS)),)
     NEED_KERNELDIR := no
@@ -38,7 +36,7 @@ ifeq ($(NEED_KERNELDIR),yes)
 		GEMM_Q := $(shell jq -r '.tiling.GEMM_Q' $(CONFIGFILE))
 		GEMM_R := $(shell jq -r '.tiling.GEMM_R' $(CONFIGFILE))
 
-		CFLAGS += -g -march=rv64imafdcv_zvl256b -mabi=lp64d -Wall -Wextra -I./driver -I./kernel/riscv64 \
+		CFLAGS += -g -O3 -march=skylake-avx512  -Wall -Wextra -I./driver -I./kernel/riscv64 \
 				-DTYPE=$(TYPE) \
 				-DBUFFER_SIZE=$(BUFFER_SIZE) \
 				-DEVAL_THRESHOLD=$(EVAL_THRESHOLD) \
@@ -53,7 +51,7 @@ ifeq ($(NEED_KERNELDIR),yes)
 			driver/level3.c \
 			$(KERNELDIR)/gemm_icopy.c \
 			$(KERNELDIR)/gemm_ocopy.c \
-			$(KERNELDIR)/gemm_kernel_16x8.c \
+			$(KERNELDIR)/gemm_kernel.c \
 			$(KERNELDIR)/gemm_beta.c
 
 		OBJS = $(SRCS:.c=.o) 
@@ -79,12 +77,11 @@ $(TARGET): $(OBJS)
 
 # Run with QEMU
 run:
-	$(QEMU) $(QEMU_FLAGS) $(TARGET) 16 24 256 1 1 && echo "Success" || echo "Failure"
+	./$(TARGET) 512 512 512 1 1 && echo "Success" || echo "Failure"
 
 # Run with QEMU and GDB
 gdb:
-	$(QEMU) -g 1234 $(QEMU_FLAGS) $(TARGET) 64 128 4 1 1 &
-	$(GDB) $(TARGET) -tui -ex "target remote localhost:1234"
+	$(GDB) --args $(TARGET) 16 24 256 1 1
 
 # Clean build files
 clean:
