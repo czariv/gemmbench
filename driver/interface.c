@@ -1,6 +1,18 @@
 #include <stdlib.h>
 #include "interface.h"
 
+clock_t icopy_s = 0, icopy_e = 0, ocopy_s = 0, ocopy_e = 0, kernel_s = 0, kernel_e = 0, calling_s = 0, calling_e = 0;
+double icopy, ocopy, kernel, calling;
+
+void print_metrics(){
+    printf("\n--- Execution Time Metrics ---\n");
+    printf("Input Copy Time  : %.2f microseconds\n", icopy);
+    printf("Output Copy Time : %.2f microseconds\n", ocopy);
+    printf("Kernel Time      : %.2f microseconds\n", kernel);
+    printf("Overhead Time    : %.2f microseconds\n", calling - (kernel+icopy+ocopy));
+    printf("Calling Time     : %.2f microseconds\n", calling);
+}
+
 #ifndef COLMAJOR
 void gemm(int M, int N, int K,
            float alpha,

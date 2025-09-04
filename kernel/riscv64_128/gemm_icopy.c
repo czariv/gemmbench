@@ -1,5 +1,5 @@
 /***************************************************************************
-Copyright (c) 2025, The OpenBLAS Project
+Copyright (c) 2022, The OpenBLAS Project
 All rights reserved.
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -28,17 +28,14 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "interface.h"
 #include <riscv_vector.h>
 
-#define FLOAT_V_T               vfloat32m4_t
-#define FLOAT_V_T_HALF          vfloat32m2_t
-#define FLOAT_V_T_QUARTER       vfloat32m1_t
-#define VLEV_FLOAT              __riscv_vle32_v_f32m4
-#define VLEV_FLOAT_HALF         __riscv_vle32_v_f32m2
-#define VLEV_FLOAT_QUARTER      __riscv_vle32_v_f32m1
-#define VSEV_FLOAT              __riscv_vse32_v_f32m4
-#define VSEV_FLOAT_HALF         __riscv_vse32_v_f32m2
-#define VSEV_FLOAT_QUARTER      __riscv_vse32_v_f32m1
 
-// Optimizes the implementation in ../generic/gemm_tcopy_16.c
+#define FLOAT_V_T               vfloat32m2_t
+#define FLOAT_V_T_HALF          vfloat32m1_t
+#define VLEV_FLOAT              __riscv_vle32_v_f32m2
+#define VLEV_FLOAT_HALF         __riscv_vle32_v_f32m1
+#define VSEV_FLOAT              __riscv_vse32_v_f32m2
+#define VSEV_FLOAT_HALF         __riscv_vse32_v_f32m1
+
 
 int gemm_icopy(long m, long n, float *a, long lda, float *b)
 {
@@ -47,70 +44,58 @@ int gemm_icopy(long m, long n, float *a, long lda, float *b)
     float *aoffset;
     float *aoffset1;
 
-    float *boffset, *boffset1, *boffset2, *boffset3, *boffset4, *boffset5;
+    float *boffset, *boffset1, *boffset2, *boffset3, *boffset4;
 
     FLOAT_V_T v0;
     FLOAT_V_T_HALF v1;
-    FLOAT_V_T_QUARTER v2;
 
-    // fprintf(stderr, "gemm_tcopy_16 m=%ld n=%ld lda=%ld\n", m, n, lda);
+    // fprintf(stderr, "gemm_tcopy_8 m=%ld n=%ld lda=%ld\n", m, n, lda);
 
     aoffset   = a;
     boffset   = b;
-    boffset2  = b + m  * (n & ~15);
-    boffset3  = b + m  * (n & ~7);
-    boffset4  = b + m  * (n & ~3);
-    boffset5  = b + m  * (n & ~1);
+    boffset2  = b + m  * (n & ~7);
+    boffset3  = b + m  * (n & ~3);
+    boffset4  = b + m  * (n & ~1);
 
     for(j = m; j > 0; j--) {
         aoffset1  = aoffset;
         boffset1  = boffset;
 
         aoffset += lda;
-        boffset  += 16;
+        boffset  += 8;
 
-        for(i = (n >> 4); i > 0; i--) {
-            size_t vl = 16;
+        for(i = (n >> 3); i > 0; i--) {
+            size_t vl = 8;
 
             v0 = VLEV_FLOAT(aoffset1, vl);
             VSEV_FLOAT(boffset1, v0, vl);
 
-            aoffset1 += 16;
-            boffset1 += 16 * m;
-        }
- 
-        if (n & 8) {
-            size_t vl = 8;
-
-            v1 = VLEV_FLOAT_HALF(aoffset1, vl);
-            VSEV_FLOAT_HALF(boffset2, v1, vl);
-
             aoffset1 += 8;
-            boffset2 += 8;
+            boffset1 += 8 * m;
         }
 
         if (n & 4) {
             size_t vl = 4;
 
-            v2 = VLEV_FLOAT_QUARTER(aoffset1, vl);
-            VSEV_FLOAT_QUARTER(boffset3, v2, vl);
+            v1 = VLEV_FLOAT_HALF(aoffset1, vl);
+            VSEV_FLOAT_HALF(boffset2, v1, vl);
 
             aoffset1 += 4;
-            boffset3 += 4;
+            boffset2 += 4;
         }
 
         if (n & 2) {
-            *(boffset4) = *(aoffset1);
-            *(boffset4 + 1) = *(aoffset1 + 1);
+            *(boffset3) = *(aoffset1);
+            *(boffset3 + 1) = *(aoffset1 + 1);
 
             aoffset1 += 2;
-            boffset4 += 2;
+            boffset3 += 2;
         }
 
         if (n & 1) {
-            *(boffset5) = *(aoffset1);
+            *(boffset4) = *(aoffset1);
             aoffset1 ++;
-            boffset5 ++;
+            boffset4 ++;
         }
     }
 

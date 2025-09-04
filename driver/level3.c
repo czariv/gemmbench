@@ -113,7 +113,10 @@ int gemm_tiling(arg_t *args, long *range_m, long *range_n,
 	}
       }
 
+      icopy_s = clock();
       ICOPY_OPERATION(min_l, min_i, a, lda, ls, m_from, sa);
+      icopy_e = clock();
+      icopy += (double)(icopy_e - icopy_s) / CLOCKS_PER_SEC * 1000;
 
       for(jjs = js; jjs < js + min_j; jjs += min_jj){
 	min_jj = min_j + js - jjs;
@@ -126,13 +129,18 @@ int gemm_tiling(arg_t *args, long *range_m, long *range_n,
           		if (min_jj > GEMM_UNROLL_N) min_jj = GEMM_UNROLL_N;
 
 
+  ocopy_s = clock();
+  OCOPY_OPERATION(min_l, min_jj, b, ldb, ls, jjs,
+    sb + pad_min_l * (jjs - js) * COMPSIZE * l1stride);
+  ocopy_e = clock();
+  ocopy += (double)(ocopy_e - ocopy_s) / CLOCKS_PER_SEC * 1000;
 
-	OCOPY_OPERATION(min_l, min_jj, b, ldb, ls, jjs,
-			sb + pad_min_l * (jjs - js) * COMPSIZE * l1stride);
 
-
-	KERNEL_OPERATION(min_i, min_jj, min_l, alpha,
-			 sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, ldc, m_from, jjs);
+  kernel_s = clock();
+  KERNEL_OPERATION(min_i, min_jj, min_l, alpha,
+     sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, ldc, m_from, jjs);
+  kernel_e = clock();
+  kernel += (double)(kernel_e - kernel_s) / CLOCKS_PER_SEC * 1000;
 
       }
 
@@ -146,9 +154,17 @@ int gemm_tiling(arg_t *args, long *range_m, long *range_n,
 	    min_i = ((min_i / 2 + GEMM_UNROLL_M - 1)/GEMM_UNROLL_M) * GEMM_UNROLL_M;
 	  }
 
-	ICOPY_OPERATION(min_l, min_i, a, lda, ls, is, sa);
+  icopy_s = clock();
+  ICOPY_OPERATION(min_l, min_i, a, lda, ls, is, sa);
+  icopy_e = clock();
+  icopy += (double)(icopy_e - icopy_s) / CLOCKS_PER_SEC * 1000;
+  // **** Native implementation **** //
 
-	KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, ldc, is, js);
+  // **** Native implementation **** //
+  kernel_s = clock();
+  KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, ldc, is, js);
+  kernel_e = clock();
+  kernel += (double)(kernel_e - kernel_s) / CLOCKS_PER_SEC * 1000;
 
       } /* end of is */
     } /* end of js */

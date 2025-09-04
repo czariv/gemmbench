@@ -1,5 +1,5 @@
 # Compiler, Simmulator and debbuger
-CC := clang
+CC := clang -target riscv64-unknown-linux-gnu
 AS := clang
 GDB := gdb
 
@@ -36,7 +36,7 @@ ifeq ($(NEED_KERNELDIR),yes)
 		GEMM_Q := $(shell jq -r '.tiling.GEMM_Q' $(CONFIGFILE))
 		GEMM_R := $(shell jq -r '.tiling.GEMM_R' $(CONFIGFILE))
 
-		CFLAGS += -g -O3 -march=skylake-avx512  -Wall -Wextra -I./driver -I./kernel/riscv64 \
+		CFLAGS += -g -O3 -march=rv64imafdcv_zvl256b  -Wall -Wextra -I./driver -I./kernel/riscv64 \
 				-DTYPE=$(TYPE) \
 				-DBUFFER_SIZE=$(BUFFER_SIZE) \
 				-DEVAL_THRESHOLD=$(EVAL_THRESHOLD) \

@@ -50,6 +50,12 @@ int main(int argc, char* argv[]){
     float* C_native = (float *) malloc(M*N*sizeof(float));
     float* C_naive = (float *) malloc(M*N*sizeof(float));
 
+    float* clean_cache = malloc((1<<20) * sizeof(float));;
+
+    for(int i=0; i < 1<<20; i++) clean_cache[i] = 0;
+
+
+    calling_s = clock();
     //native implementation (teiu)
     gemm(M, N, K,
          alpha,
@@ -57,6 +63,8 @@ int main(int argc, char* argv[]){
          B, /*ldb*/ N,
          beta,
          C_native, /*ldc*/ N);
+    calling_e = clock();
+    calling = (double)(calling_e - calling_s) / CLOCKS_PER_SEC * 1000;
 
     //naive implementation
     for (int i = 0; i < M; i++) {
@@ -68,7 +76,8 @@ int main(int argc, char* argv[]){
       }
     }
 
-
+    clean_cache[0] = 10;
+    print_metrics();
      float rel_diff;
      for(int i=0; i<M; i++){
          for(int j = 0; j<N; j++){
