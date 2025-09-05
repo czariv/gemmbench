@@ -23,6 +23,7 @@ int main(int argc, char* argv[]){
     int K = atoi(argv[3]);
     float alpha = (float) atof(argv[4]);
     float beta = (float) atof(argv[5]);
+    clock_t start, end;
 
     //printf("%d %d %d %f %f\n", M, N, K, alpha, beta);
     //srand(time(NULL));
@@ -65,7 +66,9 @@ int main(int argc, char* argv[]){
          C_native, /*ldc*/ N);
     calling_e = clock();
     calling = (double)(calling_e - calling_s) / CLOCKS_PER_SEC * 1000;
+    printf("Time taken (native): %f seconds\n", calling);
 
+    start = clock();
     //naive implementation
     for (int i = 0; i < M; i++) {
       for (int j = 0; j < N; j++)
@@ -75,6 +78,9 @@ int main(int argc, char* argv[]){
             C_naive[i*N+j] += alpha * A[i*K+k] * B[k*N+j];
       }
     }
+    end = clock();
+    double cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC * 1000;
+    printf("Time taken (naive): %f seconds\n", cpu_time_used);
 
     clean_cache[0] = 10;
     print_metrics();

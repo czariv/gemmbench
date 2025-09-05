@@ -1,5 +1,5 @@
 # Compiler, Simmulator and debbuger
-CC := clang -target riscv64-unknown-linux-gnu
+CC := clang
 AS := clang
 GDB := gdb
 
@@ -12,7 +12,7 @@ GEMM_Q=$(shell jq -r 'tiling.gemm_q' $(CONFIG_FILE))
 GEMM_R=$(shell jq -r 'tiling.gemm_r' $(CONFIG_FILE))
 
 # Pass them as compiler flags
-LDFLAGS += -static 
+# LDFLAGS += -static 
 
 ifneq ($(filter run gdb distclean,$(MAKECMDGOALS)),)
     NEED_KERNELDIR := no
@@ -36,7 +36,7 @@ ifeq ($(NEED_KERNELDIR),yes)
 		GEMM_Q := $(shell jq -r '.tiling.GEMM_Q' $(CONFIGFILE))
 		GEMM_R := $(shell jq -r '.tiling.GEMM_R' $(CONFIGFILE))
 
-		CFLAGS += -g -O3 -march=rv64imafdcv_zvl256b  -Wall -Wextra -I./driver -I./kernel/riscv64 \
+		CFLAGS += -g -O3 -march=skylake-avx512  -Wall -Wextra -I./driver -I./kernel/skylakex \
 				-DTYPE=$(TYPE) \
 				-DBUFFER_SIZE=$(BUFFER_SIZE) \
 				-DEVAL_THRESHOLD=$(EVAL_THRESHOLD) \
