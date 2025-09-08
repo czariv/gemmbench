@@ -1,3 +1,6 @@
 *.o
 *.swp
 gemmvbench
+.cache
+.vscode
+compile_commands.json
