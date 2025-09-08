@@ -1,6 +1,12 @@
+# Object files
 *.o
 *.swp
-gemmvbench
-.cache
-.vscode
+
+# VSCode configurations
+.vscode/*
+
+# Compile Commands
 compile_commands.json
+
+# Cache
+.cache/*

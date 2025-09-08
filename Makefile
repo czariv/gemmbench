@@ -45,11 +45,19 @@ ifeq ($(NEED_KERNELDIR),yes)
 				-DGEMM_P=$(GEMM_P) \
 				-DGEMM_Q=$(GEMM_Q) \
 				-DGEMM_R=$(GEMM_R)
+		ifneq ($(DEBUG), )
+			CFLAGS += -DDEBUG
+		endif
 
 		SRCS =  main.c \
 			driver/interface.c \
 			driver/level3.c \
+			driver/interface_pre.c \
+			driver/level3_pre.c \
+			driver/interface_pos.c \
+			driver/level3_pos.c \
 			$(KERNELDIR)/gemm_icopy.c \
+			$(KERNELDIR)/gemm_icopy_pos.c \
 			$(KERNELDIR)/gemm_ocopy.c \
 			$(KERNELDIR)/gemm_kernel.c \
 			$(KERNELDIR)/gemm_beta.c
