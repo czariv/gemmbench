@@ -50,6 +50,18 @@ int main(int argc, char* argv[]){
     float* C_native = (float *) malloc(M*N*sizeof(float));
     float* C_naive = (float *) malloc(M*N*sizeof(float));
 
+    counter = 0;
+    float *D = (float *) malloc(N*K*sizeof(float));
+    for(int i=0; i<K; i++){
+        for (int j=0; j<N; j++){
+            D[N*i+j] = (float) counter;//((float) rand() / (float)RAND_MAX) * (rand_max-rand_min) + rand_min;
+	        counter = counter + 1;
+	    }
+    }
+
+    float* E_native = (float *) malloc(M*K*sizeof(float));
+    float* E_naive = (float *) malloc(M*K*sizeof(float));
+
     float* clean_cache = malloc((1<<20) * sizeof(float));;
 
     for(int i=0; i < 1<<20; i++) clean_cache[i] = 0;
@@ -63,6 +75,13 @@ int main(int argc, char* argv[]){
         B, /*ldb*/ K,
         beta,
         C_native, /*ldc*/ M);
+
+    gemm(M, K, N,
+        alpha,
+        C_native, /*lda*/ M,
+        D, /*ldb*/ N,
+        beta,
+        E_native, /*ldc*/ M);
     calling_e = clock();
     calling = (double)(calling_e - calling_s) / CLOCKS_PER_SEC * 1000;
 
@@ -74,17 +93,24 @@ int main(int argc, char* argv[]){
                 C_naive[i*M+j] += alpha * A[k*M+j] * B[i*K+k];
         }
     }
+    for (int i = 0; i < K; i++) {
+        for (int j = 0; j < M; j++){
+            E_naive[i*M+j] *= beta;
+            for (int k = 0; k < N; k++) 
+                E_naive[i*M+j] += alpha * C_naive[k*M+j] * D[i*N+k];
+      }
+    }
 
     clean_cache[0] = 10;
     print_metrics();
      float rel_diff;
-     for(int i=0; i<M; i++){
-         for(int j = 0; j<N; j++){
-             rel_diff = fabsf(C_native[i*N+j] - C_naive[i*N+j]) / (fabsf(C_naive[i*N+j]) + 1e-8f);
-             if (rel_diff > 1e-4)
-                 return 1;
-         }
-     }
+    for(int i=0; i<K; i++){
+        for(int j = 0; j<M; j++){
+            rel_diff = fabsf(E_native[i*M+j] - E_naive[i*M+j]) / (fabsf(E_naive[i*M+j]) + 1e-8f);
+            if (rel_diff > 1e-4)
+                return 1;
+        }
+    }
 
     return 0;
 }
