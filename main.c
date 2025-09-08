@@ -31,18 +31,18 @@ int main(int argc, char* argv[]){
     // \alpha * A_{mxk} * B_{kxn} + \beta * C_{mxn}
     float counter = 0;
     float *A = (float *) malloc(M*K*sizeof(float));
-    for(int i=0; i<M; i++){
-        for (int j=0; j<K; j++){
-            A[K*i+j] = (float) counter;//((float) rand() / (float)RAND_MAX) * (rand_max-rand_min) + rand_min;
+    for(int i=0; i<K; i++){
+        for (int j=0; j<M; j++){
+            A[M*i+j] = (float) counter;//((float) rand() / (float)RAND_MAX) * (rand_max-rand_min) + rand_min;
 	    counter = counter + 1;
 	}
    }
 
     counter = 0;
     float *B = (float *) malloc(K*N*sizeof(float));
-    for(int i=0; i<K; i++){
-        for (int j=0; j<N; j++){
-            B[N*i+j] = (float) counter;//((float)rand() / (float)RAND_MAX) * (rand_max-rand_min) + rand_min;
+    for(int i=0; i<N; i++){
+        for (int j=0; j<K; j++){
+            B[K*i+j] = (float) counter;//((float)rand() / (float)RAND_MAX) * (rand_max-rand_min) + rand_min;
 	    counter = counter + 1;
 	}
     }
@@ -58,22 +58,21 @@ int main(int argc, char* argv[]){
     calling_s = clock();
     //native implementation (teiu)
     gemm(M, N, K,
-         alpha,
-         A, /*lda*/ K,
-         B, /*ldb*/ N,
-         beta,
-         C_native, /*ldc*/ N);
+        alpha,
+        A, /*lda*/ M,
+        B, /*ldb*/ K,
+        beta,
+        C_native, /*ldc*/ M);
     calling_e = clock();
     calling = (double)(calling_e - calling_s) / CLOCKS_PER_SEC * 1000;
 
     //naive implementation
-    for (int i = 0; i < M; i++) {
-      for (int j = 0; j < N; j++)
-          C_naive[i*N+j] *= beta;
-      for (int k = 0; k < K; k++) {
-         for (int j = 0; j < N; j++)
-            C_naive[i*N+j] += alpha * A[i*K+k] * B[k*N+j];
-      }
+    for (int i = 0; i < N; i++){
+        for (int j = 0; j < M; j++){
+            C_naive[i*M+j] *= beta;
+            for (int k = 0; k < K; k++)
+                C_naive[i*M+j] += alpha * A[k*M+j] * B[i*K+k];
+        }
     }
 
     clean_cache[0] = 10;

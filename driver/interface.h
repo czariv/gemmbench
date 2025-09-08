@@ -42,7 +42,6 @@
     #define EVAL_THRESHOLD 0.001
 #endif
 
-#define COLMAJOR 1
 #define KERNEL_FUNC gemm_kernel
 #define GEMM_ITCOPY gemm_icopy
 #define GEMM_ONCOPY gemm_ocopy
