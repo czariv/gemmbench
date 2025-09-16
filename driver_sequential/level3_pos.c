@@ -1,4 +1,4 @@
-#include "interface_pos.h"
+#include "interface.h"
 #include <stdlib.h>
 
 #define COMPSIZE 1
@@ -8,7 +8,7 @@
     BETA, NULL, 0, NULL, 0, \
     (float *)(C) + ((N_FROM) + (M_FROM) * (LDC)), LDC)
 
-#define ICOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ITCOPY_POS(M, N, (float *)(A) + ((Y) + (X) * (LDA)), LDA, BUFFER);
+#define ICOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ITCOPY(M, N, (float *)(A) + ((Y) + (X) * (LDA)), LDA, BUFFER);
 
 #define OCOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ONCOPY(M, N, (float *)(A) + ((X) + (Y) * (LDA)), LDA, BUFFER);
 
@@ -25,7 +25,7 @@
 #define N	args -> n
 #define K	args -> k
 
-int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sb){
+int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sa){
     long k, lda, ldb, ldc;
     float alpha, beta;
     float *a, *b;
@@ -112,38 +112,7 @@ int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sb){
                 }
             }
 
-            // **** Native implementation **** //
-            // icopy_start();
-            //ICOPY_OPERATION(min_l, min_i, a, lda, ls/min_l * k, m_from, sa);
-            // icopy_stop();
-            // **** Native implementation **** //
-
-            for(jjs = js; jjs < js + min_j; jjs += min_jj){
-                min_jj = min_j + js - jjs;
-                if (min_jj >= 3*GEMM_UNROLL_N) min_jj = 3*GEMM_UNROLL_N;
-                else
-                /*
-                    if (min_jj >= 2*GEMM_UNROLL_N) min_jj = 2*GEMM_UNROLL_N;
-                        else
-                */
-                        if (min_jj > GEMM_UNROLL_N) min_jj = GEMM_UNROLL_N;
-
-
-                // **** Native implementation **** //
-                // ocopy_start();
-                OCOPY_OPERATION(min_l, min_jj, b, ldb, ls, jjs, sb + pad_min_l * (jjs - js) * COMPSIZE * l1stride);
-                // ocopy_stop();
-                // **** Native implementation **** //
-
-                // **** Native implementation **** //
-                // kernel_start();
-                KERNEL_OPERATION(min_i, min_jj, min_l, alpha, a + lda * ls/min_l * k + m_from, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, ldc, m_from, jjs);
-                // kernel_stop();
-                // **** Native implementation **** //
-
-            }
-
-            for(is = m_from + min_i; is < m_to; is += min_i){
+            for(is = m_from; is < m_to; is += min_i){
                 min_i = m_to - is;
 
                 if (min_i >= GEMM_P * 2) {
@@ -153,18 +122,17 @@ int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sb){
                         min_i = ((min_i / 2 + GEMM_UNROLL_M - 1)/GEMM_UNROLL_M) * GEMM_UNROLL_M;
                 }
 
+                icopy_s = clock();
+                ICOPY_OPERATION(min_l, min_i, a, lda, ls, is, sa);
+                icopy_e = clock();
+                icopy += (double)(icopy_e - icopy_s) / CLOCKS_PER_SEC * 1000;
                 // **** Native implementation **** //
-                // icopy_start();
-                //ICOPY_OPERATION(min_l, min_i, a, lda, ls/min_l * k, is * min_i, sa);
 
-                // icopy_stop();
                 // **** Native implementation **** //
-
-                // **** Native implementation **** //
-                // kernel_start();
-                KERNEL_OPERATION(min_i, min_j, min_l, alpha, a + lda * ls/min_l * k + is * min_i, sb, c, ldc, is, js);
-                // kernel_stop();
-                // **** Native implementation **** //
+                kernel_s = clock();
+                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, b + ls * n_to, c, ldc, is, js);
+                kernel_e = clock();
+                kernel += (double)(kernel_e - kernel_s) / CLOCKS_PER_SEC * 1000;
 
             } /* end of is */
         } /* end of js */

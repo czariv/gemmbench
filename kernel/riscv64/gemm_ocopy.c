@@ -29,168 +29,80 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <riscv_vector.h>
 
 #if !defined(DOUBLE)
-#define VSETVL(n)               __riscv_vsetvl_e32m1(n)
-#define FLOAT_V_T               vfloat32m1_t
-#define FLOAT_VX2_T             vfloat32m1x2_t
-#define FLOAT_VX4_T             vfloat32m1x4_t
-#define FLOAT_VX8_T             vfloat32m1x8_t
-#define VSET_VX2                __riscv_vset_v_f32m1_f32m1x2
-#define VSET_VX4                __riscv_vset_v_f32m1_f32m1x4
-#define VSET_VX8                __riscv_vset_v_f32m1_f32m1x8
-#define VLEV_FLOAT              __riscv_vle32_v_f32m1
-#define VSEV_FLOAT              __riscv_vse32_v_f32m1
-#define VSSEG2_FLOAT            __riscv_vsseg2e32_v_f32m1x2
-#define VSSEG4_FLOAT            __riscv_vsseg4e32_v_f32m1x4
-#define VSSEG8_FLOAT            __riscv_vsseg8e32_v_f32m1x8
+#define FLOAT_V_T               vfloat32m2_t
+#define FLOAT_V_T_HALF          vfloat32m1_t
+#define VLEV_FLOAT              __riscv_vle32_v_f32m2
+#define VLEV_FLOAT_HALF         __riscv_vle32_v_f32m1
+#define VSEV_FLOAT              __riscv_vse32_v_f32m2
+#define VSEV_FLOAT_HALF         __riscv_vse32_v_f32m1
 #else
-#define VSETVL(n)               __riscv_vsetvl_e64m1(n)
-#define FLOAT_V_T               vfloat64m1_t
-#define FLOAT_VX2_T             vfloat64m1x2_t
-#define FLOAT_VX4_T             vfloat64m1x4_t
-#define FLOAT_VX8_T             vfloat64m1x8_t
-#define VSET_VX2                __riscv_vset_v_f64m1_f64m1x2
-#define VSET_VX4                __riscv_vset_v_f64m1_f64m1x4
-#define VSET_VX8                __riscv_vset_v_f64m1_f64m1x8
-#define VLEV_FLOAT              __riscv_vle64_v_f64m1
-#define VSEV_FLOAT              __riscv_vse64_v_f64m1
-#define VSSEG2_FLOAT            __riscv_vsseg2e64_v_f64m1x2
-#define VSSEG4_FLOAT            __riscv_vsseg4e64_v_f64m1x4
-#define VSSEG8_FLOAT            __riscv_vsseg8e64_v_f64m1x8
+#define FLOAT_V_T               vfloat64m4_t
+#define FLOAT_V_T_HALF          vfloat64m2_t
+#define VLEV_FLOAT              __riscv_vle64_v_f64m4
+#define VLEV_FLOAT_HALF         __riscv_vle64_v_f64m2
+#define VSEV_FLOAT              __riscv_vse64_v_f64m4
+#define VSEV_FLOAT_HALF         __riscv_vse64_v_f64m2
 #endif
-
-// Optimizes the implementation in ../generic/gemm_ncopy_8.c
 
 int gemm_ocopy(long m, long n, float *a, long lda, float *b)
 {
     long i, j;
 
-    float *a_offset;
-    float *a_offset1, *a_offset2, *a_offset3, *a_offset4;
-    float *a_offset5, *a_offset6, *a_offset7, *a_offset8;
-    float *b_offset;
+    float *aoffset;
+    float *aoffset1;
 
-    FLOAT_V_T v1, v2, v3, v4, v5, v6, v7, v8;
-    FLOAT_VX2_T vx2;
-    FLOAT_VX4_T vx4;
-    FLOAT_VX8_T vx8;
+    float *boffset, *boffset1, *boffset2, *boffset3, *boffset4;
 
-    size_t vl;
+    FLOAT_V_T v0;
+    FLOAT_V_T_HALF v1;
 
-    //fprintf(stderr, "gemm_ncopy_8 m=%ld n=%ld lda=%ld\n", m, n, lda);
+    // fprintf(stderr, "gemm_tcopy_8 m=%ld n=%ld lda=%ld\n", m, n, lda);
 
-    a_offset = a;
-    b_offset = b;
+    aoffset   = a;
+    boffset   = b;
+    boffset2  = b + m  * (n & ~7);
+    boffset3  = b + m  * (n & ~3);
+    boffset4  = b + m  * (n & ~1);
 
-    for(j = (n >> 3); j > 0; j--) {
-        a_offset1  = a_offset;
-        a_offset2  = a_offset1 + lda;
-        a_offset3  = a_offset2 + lda;
-        a_offset4  = a_offset3 + lda;
-        a_offset5  = a_offset4 + lda;
-        a_offset6  = a_offset5 + lda;
-        a_offset7  = a_offset6 + lda;
-        a_offset8  = a_offset7 + lda;
-        a_offset += 8 * lda;
+    for(j = m; j > 0; j--) {
+        aoffset1  = aoffset;
+        boffset1  = boffset;
 
-        for(i = m; i > 0; i -= vl) {
-            vl = VSETVL(i);
+        aoffset += lda;
+        boffset  += 8;
 
-            v1 = VLEV_FLOAT(a_offset1, vl);
-            v2 = VLEV_FLOAT(a_offset2, vl);
-            v3 = VLEV_FLOAT(a_offset3, vl);
-            v4 = VLEV_FLOAT(a_offset4, vl);
-            v5 = VLEV_FLOAT(a_offset5, vl);
-            v6 = VLEV_FLOAT(a_offset6, vl);
-            v7 = VLEV_FLOAT(a_offset7, vl);
-            v8 = VLEV_FLOAT(a_offset8, vl);
+        for(i = (n >> 3); i > 0; i--) {
+            size_t vl = 8;
 
-            vx8 = VSET_VX8(vx8, 0, v1);
-            vx8 = VSET_VX8(vx8, 1, v2);
-            vx8 = VSET_VX8(vx8, 2, v3);
-            vx8 = VSET_VX8(vx8, 3, v4);
-            vx8 = VSET_VX8(vx8, 4, v5);
-            vx8 = VSET_VX8(vx8, 5, v6);
-            vx8 = VSET_VX8(vx8, 6, v7);
-            vx8 = VSET_VX8(vx8, 7, v8);
+            v0 = VLEV_FLOAT(aoffset1, vl);
+            VSEV_FLOAT(boffset1, v0, vl);
 
-            VSSEG8_FLOAT(b_offset, vx8, vl);
-
-            a_offset1 += vl;
-            a_offset2 += vl;
-            a_offset3 += vl;
-            a_offset4 += vl;
-            a_offset5 += vl;
-            a_offset6 += vl;
-            a_offset7 += vl;
-            a_offset8 += vl;
-            b_offset += vl*8;
+            aoffset1 += 8;
+            boffset1 += 8 * m;
         }
-    }
 
-    if (n & 4) {
-        a_offset1  = a_offset;
-        a_offset2  = a_offset1 + lda;
-        a_offset3  = a_offset2 + lda;
-        a_offset4  = a_offset3 + lda;
-        a_offset += 4 * lda;
+        if (n & 4) {
+            size_t vl = 4;
 
-        for(i = m; i > 0; i -= vl) {
-            vl = VSETVL(i);
+            v1 = VLEV_FLOAT_HALF(aoffset1, vl);
+            VSEV_FLOAT_HALF(boffset2, v1, vl);
 
-            v1 = VLEV_FLOAT(a_offset1, vl);
-            v2 = VLEV_FLOAT(a_offset2, vl);
-            v3 = VLEV_FLOAT(a_offset3, vl);
-            v4 = VLEV_FLOAT(a_offset4, vl);
-
-            vx4 = VSET_VX4(vx4, 0, v1);
-            vx4 = VSET_VX4(vx4, 1, v2);
-            vx4 = VSET_VX4(vx4, 2, v3);
-            vx4 = VSET_VX4(vx4, 3, v4);
-
-            VSSEG4_FLOAT(b_offset, vx4, vl);
-
-            a_offset1 += vl;
-            a_offset2 += vl;
-            a_offset3 += vl;
-            a_offset4 += vl;
-            b_offset += vl*4;
+            aoffset1 += 4;
+            boffset2 += 4;
         }
-    }
 
-    if (n & 2) {
-        a_offset1  = a_offset;
-        a_offset2  = a_offset1 + lda;
-        a_offset += 2 * lda;
+        if (n & 2) {
+            *(boffset3) = *(aoffset1);
+            *(boffset3 + 1) = *(aoffset1 + 1);
 
-        for(i = m; i > 0; i -= vl) {
-            vl = VSETVL(i);
-
-            v1 = VLEV_FLOAT(a_offset1, vl);
-            v2 = VLEV_FLOAT(a_offset2, vl);
-
-            vx2 = VSET_VX2(vx2, 0, v1);
-            vx2 = VSET_VX2(vx2, 1, v2);
-
-            VSSEG2_FLOAT(b_offset, vx2, vl);
-
-            a_offset1 += vl;
-            a_offset2 += vl;
-            b_offset += vl*2;
+            aoffset1 += 2;
+            boffset3 += 2;
         }
-    }
 
-    if (n & 1) {
-        a_offset1  = a_offset;
-
-        for(i = m; i > 0; i -= vl) {
-            vl = VSETVL(i);
-
-            v1 = VLEV_FLOAT(a_offset1, vl);
-
-            VSEV_FLOAT(b_offset, v1, vl);
-
-            a_offset1 += vl;
-            b_offset += vl;
+        if (n & 1) {
+            *(boffset4) = *(aoffset1);
+            aoffset1 ++;
+            boffset4 ++;
         }
     }
 
