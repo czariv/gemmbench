@@ -38,7 +38,7 @@ Derived:
 
 */
 
-#include "interface_pre.h"
+#include "interface.h"
 #include <riscv_vector.h>
 
 int gemm_kernel_pre(long M, long N, long K, float alpha, float* A, float* B, float* C, long ldc)

@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "interface_pos.h"
+#include "interface.h"
 
 #ifndef COLMAJOR
 void gemm_pos(int M, int N, int K,

@@ -47,11 +47,14 @@
 #define GEMM_ONCOPY gemm_ocopy
 #define GEMM_BETA beta_operation
 
+#define KERNEL_FUNC_PRE gemm_kernel_pre
+
 #include <time.h>
 #include <stdio.h>
 extern clock_t icopy_s, icopy_e, ocopy_s, ocopy_e, kernel_s, kernel_e, calling_s, calling_e;
 extern double icopy, ocopy, kernel, calling;
-void print_metrics();
+void print_metrics(char* name);
+void reset_var();
 
 typedef struct {
     void *a, *b, *c, *d;
@@ -74,4 +77,30 @@ int gemm_icopy(long m, long n, float *a, long lda, float *b);
 int gemm_ocopy(long m, long n, float *a, long lda, float *b);
 int gemm_kernel(long M, long N, long K, float alpha, float* A, float* B, float* C, long ldc);
 int beta_operation(long m, long n, long dummy1, float beta, float *dummy2, long dummy3, float *dummy4, long dummy5, float *c, long ldc);
+
+
+void gemm_pre(int M, int N, int K,
+           float alpha,
+           float *a, int ldA,
+           float *b, int ldB,
+           float beta,
+           float *c, int ldC);
+
+int gemm_tiling_pre(arg_t *args, 
+           long *range_m, long *range_n, 
+           float *sa, float *sb);
+
+int gemm_kernel_pre(long M, long N, long K, float alpha, float* A, float* B, float* C, long ldc);
+
+
+void gemm_pos(int M, int N, int K,
+           float alpha,
+           float *a, int ldA,
+           float *b, int ldB,
+           float beta,
+           float *c, int ldC);
+
+int gemm_tiling_pos(arg_t *args, 
+           long *range_m, long *range_n, 
+           float *sa);
 #endif

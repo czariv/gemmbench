@@ -1,4 +1,4 @@
-#include "interface_pre.h"
+#include "interface.h"
 #include <stdlib.h>
 
 #define COMPSIZE 1
@@ -114,7 +114,10 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
             // **** Native implementation **** //
             // icopy_start();
+            icopy_s = clock();
             ICOPY_OPERATION(min_l, min_i, a, lda, ls, m_from, sa);
+            icopy_e = clock();
+            icopy += (double)(icopy_e - icopy_s) / CLOCKS_PER_SEC * 1000;
             // icopy_stop();
             // **** Native implementation **** //
 
@@ -131,13 +134,19 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // ocopy_start();
+                ocopy_s = clock();
                 OCOPY_OPERATION(min_l, min_jj, b, ldb, ls, jjs, sb + pad_min_l * (jjs - js) * COMPSIZE * l1stride);
+                ocopy_e = clock();
+                ocopy += (double)(ocopy_e - ocopy_s) / CLOCKS_PER_SEC * 1000;
                 // ocopy_stop();
                 // **** Native implementation **** //
 
                 // **** Native implementation **** //
                 // kernel_start();
+                kernel_s = clock();
                 KERNEL_OPERATION(min_i, min_jj, min_l, alpha, sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, min_i, m_from, js/GEMM_R * m_to + jjs);
+                kernel_e = clock();
+                kernel += (double)(kernel_e - kernel_s) / CLOCKS_PER_SEC * 1000;
                 // kernel_stop();
                 // **** Native implementation **** //
 
@@ -155,13 +164,19 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
 
                 // **** Native implementation **** //
                 // icopy_start();
+                icopy_s = clock();
                 ICOPY_OPERATION(min_l, min_i, a, lda, ls, is, sa);
+                icopy_e = clock();
+                icopy += (double)(icopy_e - icopy_s) / CLOCKS_PER_SEC * 1000;
                 // icopy_stop();
                 // **** Native implementation **** //
 
                 // **** Native implementation **** //
                 // kernel_start();
+                kernel_s = clock();
                 KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, sb, c, min_i, is*min_j, js/GEMM_R * m_to);
+                kernel_e = clock();
+                kernel += (double)(kernel_e - kernel_s) / CLOCKS_PER_SEC * 1000;
                 // kernel_stop();
                 // **** Native implementation **** //
 

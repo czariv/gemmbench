@@ -1,0 +1,16 @@
+{
+    "tiling": {
+        "GEMM_P": 128,
+        "GEMM_Q": 128,
+        "GEMM_R": 16384
+    },
+    "kernel": {
+        "GEMM_UNROLL_M": 16,
+        "GEMM_UNROLL_N": 8
+    },
+    "params": {
+        "TYPE": "float",
+        "BUFFER_SIZE": 33554432,
+        "EVAL_THRESHOLD": 0.001
+    }
+}

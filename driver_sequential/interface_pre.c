@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "interface_pre.h"
+#include "interface.h"
 
 #ifndef COLMAJOR
 void gemm_pre(int M, int N, int K,
