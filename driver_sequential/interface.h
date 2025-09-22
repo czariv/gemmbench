@@ -103,4 +103,15 @@ void gemm_pos(int M, int N, int K,
 int gemm_tiling_pos(arg_t *args, 
            long *range_m, long *range_n, 
            float *sa);
+
+void gemm_mid(int M, int N, int K,
+           float alpha,
+           float *a, int ldA,
+           float *b, int ldB,
+           float beta,
+           float *c, int ldC);
+
+int gemm_tiling_mid(arg_t *args, 
+           long *range_m, long *range_n, 
+           float *sa);
 #endif

@@ -11,7 +11,7 @@
 #define ICOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ITCOPY(M, N, (float *)(A) + ((Y) + (X) * (LDA)), LDA, BUFFER);
 
 #define KERNEL_OPERATION(M, N, K, ALPHA, SA, SB, C, LDC, X, Y) \
-	KERNEL_FUNC(M, N, K, ALPHA, SA, SB, (float *)(C) + ((X) + (Y) * LDC), LDC)
+	KERNEL_FUNC_PRE(M, N, K, ALPHA, SA, SB, (float *)(C) + ((X) + (Y) * LDC), LDC)
 
 #define A	args -> a
 #define LDA	args -> lda
@@ -23,7 +23,7 @@
 #define N	args -> n
 #define K	args -> k
 
-int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sa){
+int gemm_tiling_mid(arg_t *args, long *range_m, long *range_n, float *sa){
     long k, lda, ldb, ldc;
     float alpha, beta;
     float *a, *b;
@@ -128,7 +128,7 @@ int gemm_tiling_pos(arg_t *args, long *range_m, long *range_n, float *sa){
 
                 // **** Native implementation **** //
                 kernel_s = clock();
-                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, b + ls * n_to, c, ldc, is, js);
+                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, b + ls * n_to, c, min_i, is*min_j, js/GEMM_R * m_to);
                 kernel_e = clock();
                 kernel += (double)(kernel_e - kernel_s) / CLOCKS_PER_SEC * 1000;
 

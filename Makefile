@@ -12,7 +12,7 @@ GEMM_Q=$(shell jq -r 'tiling.gemm_q' $(CONFIG_FILE))
 GEMM_R=$(shell jq -r 'tiling.gemm_r' $(CONFIG_FILE))
 
 # Pass them as compiler flags
-LDFLAGS += -static 
+LDFLAGS += -static
 
 ifneq ($(filter run gdb distclean,$(MAKECMDGOALS)),)
     NEED_KERNELDIR := no
@@ -64,6 +64,8 @@ ifeq ($(NEED_KERNELDIR),yes)
 				${DRIVERDIR}/level3_pre.c \
 				${DRIVERDIR}/interface_pos.c \
 				${DRIVERDIR}/level3_pos.c \
+				${DRIVERDIR}/interface_mid.c \
+				${DRIVERDIR}/level3_mid.c \
 				$(KERNELDIR)/gemm_icopy.c \
 				$(KERNELDIR)/gemm_ocopy.c \
 				$(KERNELDIR)/gemm_kernel.c \
@@ -78,7 +80,7 @@ ifeq ($(NEED_KERNELDIR),yes)
 				$(KERNELDIR)/gemm_kernel.c \
 				$(KERNELDIR)/gemm_beta.c
 		endif
-		OBJS = $(SRCS:.c=.o) 
+		OBJS = $(SRCS:.c=.o)
 	endif
 endif
 
