@@ -40,10 +40,10 @@
 #define INIT_m16n24 INIT_m16n20 unit_init_m16n4(%%zmm28,%%zmm29,%%zmm30,%%zmm31)
 #define SAVE_h_m16n1 "vfmadd213ps (%2),%%zmm0,%%zmm8; vmovups %%zmm8,(%2);"
 #define unit_save_m16n2(c1,c2) \
-    "vunpcklpd "#c2","#c1",%%zmm4; vunpckhpd "#c2","#c1",%%zmm5;"\
-    "vfmadd213ps (%5),%%zmm0,%%zmm4; vfmadd213ps (%5),%%zmm0,%%zmm5;"\
-    "vmovupd %%zmm4, (%5)%{%%k2%}; addq $8,%5; vmovupd %%zmm4, (%5)%{%%k3%}; addq $8,%5;"\
-    "vmovupd %%zmm5, (%5)%{%%k2%}; addq $8,%5; vmovupd %%zmm5, (%5)%{%%k3%}; addq $8,%5;"
+    "vunpcklps "#c2","#c1",%%zmm6; vunpckhps "#c2","#c1",%%zmm7; vunpcklpd %%zmm7,%%zmm6,%%zmm4; vunpckhpd %%zmm7,%%zmm6,%%zmm5; kmovq %%k2, %%k1; "\
+    "vgatherdps (%5,%%zmm3,4), %%zmm6%{%%k1%}; addq $4,%5; kmovq %%k2, %%k1; vgatherdps (%5,%%zmm3,4), %%zmm7%{%%k1%}; subq $4,%5;"\
+    "vfmadd213ps %%zmm6,%%zmm0,%%zmm4; vfmadd213ps %%zmm7,%%zmm0,%%zmm5; kmovq %%k2, %%k1;"\
+    "vscatterdps %%zmm4, (%5,%%zmm3,4)%{%%k1%}; addq $4,%5; kmovq %%k2, %%k1; vscatterdps %%zmm5, (%5,%%zmm3,4)%{%%k1%}; addq $4,%5;"
 #define unit_save_m16n4(c1,c2,c3,c4) \
     "vshuff32x4 $0x44, "#c3","#c1", %%zmm4; vshuff32x4 $0x44, "#c4","#c2", %%zmm5;"\
     "vshuff32x4 $0xEE, "#c3","#c1", %%zmm6; vshuff32x4 $0xEE, "#c4","#c2", %%zmm7;"\
