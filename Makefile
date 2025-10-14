@@ -20,6 +20,10 @@ else
     NEED_KERNELDIR := yes
 endif
 
+ifeq ($(DRIVERDIR),)
+	DRIVERDIR := ./driver
+endif
+
 ifeq ($(NEED_KERNELDIR),yes)
 	ifeq ($(KERNELDIR),)
         	$(error KERNELDIR is required. Usage: make <target> KERNELDIR=<file.json>)
@@ -36,7 +40,7 @@ ifeq ($(NEED_KERNELDIR),yes)
 		GEMM_Q := $(shell jq -r '.tiling.GEMM_Q' $(CONFIGFILE))
 		GEMM_R := $(shell jq -r '.tiling.GEMM_R' $(CONFIGFILE))
 
-		CFLAGS += -g -O3 -march=skylake-avx512  -Wall -Wextra -I./driver -I./kernel/skylakex \
+		CFLAGS += -g -O3 -march=skylake-avx512  -Wall -Wextra -I${DRIVERDIR} -I${KERNELDIR} \
 				-DTYPE=$(TYPE) \
 				-DBUFFER_SIZE=$(BUFFER_SIZE) \
 				-DEVAL_THRESHOLD=$(EVAL_THRESHOLD) \
@@ -45,16 +49,38 @@ ifeq ($(NEED_KERNELDIR),yes)
 				-DGEMM_P=$(GEMM_P) \
 				-DGEMM_Q=$(GEMM_Q) \
 				-DGEMM_R=$(GEMM_R)
-
-		SRCS =  main.c \
-			driver/interface.c \
-			driver/level3.c \
-			$(KERNELDIR)/gemm_icopy.c \
-			$(KERNELDIR)/gemm_ocopy.c \
-			$(KERNELDIR)/gemm_kernel.c \
-			$(KERNELDIR)/gemm_beta.c
-
-		OBJS = $(SRCS:.c=.o) 
+		ifeq ($(DEBUG), 1)
+			CFLAGS += -DTIME
+		else ifeq ($(DEBUG), 2)
+			CFLAGS += -DTIME -DPERF
+		else ifeq ($(DEBUG), 3)
+			CFLAGS += -DTIME -DPERF -DDEBUG
+		endif
+		ifneq ($(SEQ), )
+			SRCS =  ./main_sequential.c \
+				${DRIVERDIR}/interface.c \
+				${DRIVERDIR}/level3.c \
+				${DRIVERDIR}/interface_pre.c \
+				${DRIVERDIR}/level3_pre.c \
+				${DRIVERDIR}/interface_pos.c \
+				${DRIVERDIR}/level3_pos.c \
+				${DRIVERDIR}/interface_mid.c \
+				${DRIVERDIR}/level3_mid.c \
+				$(KERNELDIR)/gemm_icopy.c \
+				$(KERNELDIR)/gemm_ocopy.c \
+				$(KERNELDIR)/gemm_kernel.c \
+				$(KERNELDIR)/gemm_kernel_pre.c \
+				$(KERNELDIR)/gemm_beta.c
+		else
+			SRCS = ./main.c \
+				${DRIVERDIR}/interface.c \
+				${DRIVERDIR}/level3.c \
+				$(KERNELDIR)/gemm_icopy.c \
+				$(KERNELDIR)/gemm_ocopy.c \
+				$(KERNELDIR)/gemm_kernel.c \
+				$(KERNELDIR)/gemm_beta.c
+		endif
+		OBJS = $(SRCS:.c=.o)
 	endif
 endif
 
