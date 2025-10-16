@@ -93,7 +93,8 @@ int main(int argc, char* argv[]){
     int N3 = atoi(argv[5]);
     float alpha = (float) atof(argv[6]);
     float beta = (float) atof(argv[7]);
-    double start, cost;
+    clock_t init, end;
+    double naive_time = 0.0, native_time = 0.0;
 
     //printf("%d %d %d %f %f\n", M, N, K, alpha, beta);
     //srand(time(NULL));
@@ -113,7 +114,10 @@ int main(int argc, char* argv[]){
     float *B_t = (float *) malloc(K*N1*sizeof(float));
     for(int i=0; i<N1; i++){
         for (int j=0; j<K; j++){
-            B_t[i+j*N1] = (float) counter++;
+            if(i==j)
+                B_t[i+j*N1] = (float) 1;
+            else
+                B_t[i+j*N1] = (float) 0;
         }
     }
 
@@ -124,7 +128,10 @@ int main(int argc, char* argv[]){
     float *D_t = (float *) malloc(N1*N2*sizeof(float));
     for(int i=0; i<N2; i++){
         for (int j=0; j<N1; j++){
-             D_t[i+j*N2] = (float) counter++;
+            if(i==j)
+                D_t[i+j*N2] = (float) 1;
+            else
+                D_t[i+j*N2] = (float) 0;
         }
     }
 
@@ -168,6 +175,7 @@ int main(int argc, char* argv[]){
     region_start(ctrs, 5, &ts);
     #endif
     reset_var();
+    init = clock();
     calling_s = clock();
     // **** Native implementation **** //
     // native_start();
@@ -228,6 +236,7 @@ int main(int argc, char* argv[]){
     // native_stop();
     // **** Native implementation **** //
     calling_e = clock();
+    end = clock();
     #ifdef PERF
     region_stop(ctrs, 5, &ts, "gemm_pos");
     #endif
@@ -236,6 +245,8 @@ int main(int argc, char* argv[]){
     print_metrics("gemm_pos");
     reset_var();
     #endif
+    native_time = (double)(end - init) / CLOCKS_PER_SEC * 1000;
+    printf("Total time (native): %f seconds\n", native_time);
 
     // calling_e = clock();
     // calling = (double)(calling_e - calling_s) / CLOCKS_PER_SEC * 1000;
@@ -246,6 +257,7 @@ int main(int argc, char* argv[]){
     #ifdef PERF
     region_start(ctrs, 5, &ts);
     #endif
+    init = clock();
     calling_s = clock();
     // **** Native implementation **** //
     // native_start();
@@ -306,6 +318,7 @@ int main(int argc, char* argv[]){
     // native_stop();
     // **** Native implementation **** //
     calling_e = clock();
+    end = clock();
     #ifdef PERF
     region_stop(ctrs, 5, &ts, "gemm3_native");
     #endif
@@ -314,98 +327,101 @@ int main(int argc, char* argv[]){
     print_metrics("native_pos");
     reset_var();
     #endif
+    naive_time = (double)(end - init) / CLOCKS_PER_SEC * 1000;
+    printf("Total time (naive): %f seconds\n", naive_time);
+    printf("Speedup (native/naive): %d%%\n", (int)(100*(naive_time-native_time)/naive_time));
 
     #ifdef DEBUG
     printf("======================= DEBUG =======================\n");
-    if((N<50)&&(M<50)&&(K<50)){
+    if((N1<50)&&(M<50)&&(K<50)){
         printf("A =\n");
         for(int i=0; i<K; i++){
             for (int j=0; j<M; j++){
                 if(j>0)
                     printf(", ");
-                printf("%d", (int)A[M*i + j]);
+                printf("%d", (int)A_t[M*i + j]);
             }
             printf("\n");
         }
         printf("-----------------------------------------------------\n");
         printf("B =\n");
-        for(int i=0; i<N; i++){
+        for(int i=0; i<N1; i++){
             for (int j=0; j<K; j++){
                 if(j>0)
                     printf(", ");
-                printf("%d", (int)B[K*i + j]);
+                printf("%d", (int)B_t[K*i + j]);
             }
             printf("\n");
         }
         printf("-----------------------------------------------------\n");
         printf("C native =\n");
-        for(int i=0; i<(M*N)/8; i++){
-            for (int j=0; j<8; j++){
+        for(int i=0; i<(M*N1)/4; i++){
+            for (int j=0; j<4; j++){
                 if(j>0)
                     printf(", ");
-                printf("%d", (int)C_native[8*i + j]);
+                printf("%d", (int)C_native[4*i + j]);
             }
             printf("\n");
         }
         printf("-----------------------------------------------------\n");
         printf("C naive =\n");
         for(int i=0; i<M; i++){
-            for (int j=0; j<N; j++){
+            for (int j=0; j<N1; j++){
                 if(j>0)
                     printf(", ");
-                printf("%d", (int)C_native_og[i*N + j]);
+                printf("%d", (int)C_native_og[i*N1 + j]);
             }
             printf("\n");
         }
         printf("-----------------------------------------------------\n");
         printf("E native =\n");
-        for(int i=0; i<(M*K)/8; i++){
-            for (int j=0; j<8; j++){
+        for(int i=0; i<(M*N2)/4; i++){
+            for (int j=0; j<4; j++){
                 if(j>0)
                     printf(", ");
-                printf("%d", (int)E_native[8*i + j]);
+                printf("%d", (int)E_native[4*i + j]);
             }
             printf("\n");
         }
         printf("-----------------------------------------------------\n");
         printf("E naive =\n");
         for(int i=0; i<M; i++){
-            for (int j=0; j<K; j++){
+            for (int j=0; j<N2; j++){
                 if(j>0)
                     printf(", ");
-                printf("%d", (int)E_native_og[K*i + j]);
+                printf("%d", (int)E_native_og[N2*i + j]);
             }
             printf("\n");
         }
         printf("-----------------------------------------------------\n");
         printf("F native =\n");
         for(int i=0; i<M; i++){
-            for (int j=0; j<N; j++){
+            for (int j=0; j<N3; j++){
                 if(j>0)
                     printf(", ");
-                printf("%d", (int)F_native[i*N + j]);
+                printf("%d", (int)F_native[i*N3 + j]);
             }
             printf("\n");
         }
         printf("-----------------------------------------------------\n");
         printf("F naive =\n");
         for(int i=0; i<M; i++){
-            for (int j=0; j<N; j++){
+            for (int j=0; j<N3; j++){
                 if(j>0)
                     printf(", ");
-                printf("%d", (int)F_native_og[i*N + j]);
+                printf("%d", (int)F_native_og[i*N3 + j]);
             }
             printf("\n");
         }
     }
-    else if ((N<1000)&&(M<1000)&&(K<1000)) {
+    else if ((N1<1000)&&(M<1000)&&(K<1000)) {
         FILE *file_nat_c = fopen("c_native.csv","w");
         printf("C native = c_native.csv\n");
-        for(int i=0; i<(M*N)/8; i++){
-            for (int j=0; j<8; j++){
+        for(int i=0; i<(M*N1)/4; i++){
+            for (int j=0; j<4; j++){
                 if(j>0)
                     fprintf(file_nat_c, ",");
-                fprintf(file_nat_c, "%.2f", C_native[8*i + j]);
+                fprintf(file_nat_c, "%.2f", C_native[4*i + j]);
             }
             fprintf(file_nat_c, "\n");
         }
@@ -413,21 +429,21 @@ int main(int argc, char* argv[]){
         FILE *file_nai_c = fopen("c_naive.csv","w");
         printf("C naive = c_naive.csv\n");
         for(int i=0; i<M; i++){
-            for (int j=0; j<N; j++){
+            for (int j=0; j<N1; j++){
                 if(j>0)
                     fprintf(file_nai_c, ",");
-                fprintf(file_nai_c, "%.2f", C_native_og[i*N + j]);
+                fprintf(file_nai_c, "%.2f", C_native_og[i*N1 + j]);
             }
             fprintf(file_nai_c, "\n");
         }
         printf("-----------------------------------------------------\n");
         FILE *file_nat = fopen("e_native.csv","w");
         printf("E native = e_native.csv\n");
-        for(int i=0; i<(M*K)/8; i++){
-            for (int j=0; j<8; j++){
+        for(int i=0; i<(M*N2)/4; i++){
+            for (int j=0; j<4; j++){
                 if(j>0)
                     fprintf(file_nat, ",");
-                fprintf(file_nat, "%.2f", E_native[i*8 + j]);
+                fprintf(file_nat, "%.2f", E_native[i*4 + j]);
             }
             fprintf(file_nat, "\n");
         }
@@ -435,10 +451,10 @@ int main(int argc, char* argv[]){
         FILE *file_nai = fopen("e_naive.csv","w");
         printf("E naive = e_naive.csv\n");
         for(int i=0; i<M; i++){
-            for (int j=0; j<K; j++){
+            for (int j=0; j<N2; j++){
                 if(j>0)
                     fprintf(file_nai, ",");
-                fprintf(file_nai, "%.2f", E_native_og[i*K + j]);
+                fprintf(file_nai, "%.2f", E_native_og[i*N2 + j]);
             }
             fprintf(file_nai, "\n");
         }
@@ -446,10 +462,10 @@ int main(int argc, char* argv[]){
         FILE *file_nai_f = fopen("f_native.csv","w");
         printf("F native = f_native.csv\n");
         for(int i=0; i<M; i++){
-            for (int j=0; j<N; j++){
+            for (int j=0; j<N3; j++){
                 if(j>0)
                     fprintf(file_nai_f, ",");
-                fprintf(file_nai_f, "%.2f", F_native[i*N + j]);
+                fprintf(file_nai_f, "%.2f", F_native[i*N3 + j]);
             }
             fprintf(file_nai_f, "\n");
         }
@@ -457,10 +473,10 @@ int main(int argc, char* argv[]){
         FILE *file_nat_f = fopen("f_naive.csv","w");
         printf("F naive = f_naive.csv\n");
         for(int i=0; i<M; i++){
-            for (int j=0; j<N; j++){
+            for (int j=0; j<N3; j++){
                 if(j>0)
                     fprintf(file_nat_f, ",");
-                fprintf(file_nat_f, "%.2f", F_native_og[i*N + j]);
+                fprintf(file_nat_f, "%.2f", F_native_og[i*N3 + j]);
             }
             fprintf(file_nat_f, "\n");
         }
