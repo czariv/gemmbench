@@ -128,7 +128,7 @@ int gemm_tiling_mid(arg_t *args, long *range_m, long *range_n, float *sa){
 
                 // **** Native implementation **** //
                 kernel_s = clock();
-                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, b + ls * n_to, c, min_i, is*min_j, js/GEMM_R * m_to);
+                KERNEL_OPERATION(min_i, min_j, min_l, alpha, sa, b + ls * n_to + js * min_l, c, min_i, is*min_j, js);
                 kernel_e = clock();
                 kernel += (double)(kernel_e - kernel_s) / CLOCKS_PER_SEC * 1000;
 

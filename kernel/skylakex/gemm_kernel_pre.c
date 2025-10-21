@@ -38,12 +38,12 @@
 #define INIT_m16n16 INIT_m16n12 unit_init_m16n4(%%zmm20,%%zmm21,%%zmm22,%%zmm23)
 #define INIT_m16n20 INIT_m16n16 unit_init_m16n4(%%zmm24,%%zmm25,%%zmm26,%%zmm27)
 #define INIT_m16n24 INIT_m16n20 unit_init_m16n4(%%zmm28,%%zmm29,%%zmm30,%%zmm31)
-#define SAVE_h_m16n1 "vfmadd213ps (%2),%%zmm0,%%zmm8; vmovups %%zmm8,(%2);"
+#define SAVE_h_m16n1 "vfmadd213ps (%2),%%zmm0,%%zmm8; vmovups %%zmm8,(%2); addq $64,%2;"
 #define unit_save_m16n2(c1,c2) \
-    "vunpcklps "#c2","#c1",%%zmm6; vunpckhps "#c2","#c1",%%zmm7; vunpcklpd %%zmm7,%%zmm6,%%zmm4; vunpckhpd %%zmm7,%%zmm6,%%zmm5; kmovq %%k2, %%k1; "\
-    "vgatherdps (%5,%%zmm3,4), %%zmm6%{%%k1%}; addq $4,%5; kmovq %%k2, %%k1; vgatherdps (%5,%%zmm3,4), %%zmm7%{%%k1%}; subq $4,%5;"\
-    "vfmadd213ps %%zmm6,%%zmm0,%%zmm4; vfmadd213ps %%zmm7,%%zmm0,%%zmm5; kmovq %%k2, %%k1;"\
-    "vscatterdps %%zmm4, (%5,%%zmm3,4)%{%%k1%}; addq $4,%5; kmovq %%k2, %%k1; vscatterdps %%zmm5, (%5,%%zmm3,4)%{%%k1%}; addq $4,%5;"
+    "vshuff32x4 $0x44, "#c2","#c1", %%zmm4; vshuff32x4 $0xEE, "#c2","#c1", %%zmm5;"\
+    "vpermpd %%zmm4, %%zmm1, %%zmm6; vpermpd %%zmm5, %%zmm1, %%zmm7;"\
+    "vfmadd213ps (%5),%%zmm0,%%zmm6; vfmadd213ps 64(%5),%%zmm0,%%zmm7;"\
+    "vmovups %%zmm6,(%5); vmovups %%zmm7,64(%5); leaq (%5,%3,2),%5;"
 #define unit_save_m16n4(c1,c2,c3,c4) \
     "vshuff32x4 $0x44, "#c3","#c1", %%zmm4; vshuff32x4 $0x44, "#c4","#c2", %%zmm5;"\
     "vshuff32x4 $0xEE, "#c3","#c1", %%zmm6; vshuff32x4 $0xEE, "#c4","#c2", %%zmm7;"\
@@ -53,14 +53,14 @@
     "vfmadd213ps 128(%5),%%zmm0,%%zmm6; vfmadd213ps 192(%5),%%zmm0,%%zmm7;"\
     "vmovups %%zmm4,(%5); vmovups %%zmm5,64(%5);"\
     "vmovups %%zmm6,128(%5); vmovups %%zmm7,192(%5); leaq (%5,%3,4),%5;"
-#define SAVE_h_m16n2 "movq %2,%5;" unit_save_m16n2(%%zmm8,%%zmm10)
-#define SAVE_h_m16n4 "movq %2,%5;" unit_save_m16n4(%%zmm8,%%zmm9,%%zmm10,%%zmm11)
+#define SAVE_h_m16n2 "movq %2,%5;" "addq $128,%2;" unit_save_m16n2(%%zmm8,%%zmm9)
+#define SAVE_h_m16n4 "movq %2,%5;"  "addq $256,%2;" unit_save_m16n4(%%zmm8,%%zmm9,%%zmm10,%%zmm11)
 #define SAVE_h_m16n8  SAVE_h_m16n4 unit_save_m16n4(%%zmm12,%%zmm13,%%zmm14,%%zmm15)
 #define SAVE_h_m16n12 SAVE_h_m16n8 unit_save_m16n4(%%zmm16,%%zmm17,%%zmm18,%%zmm19)
 #define SAVE_h_m16n16 SAVE_h_m16n12 unit_save_m16n4(%%zmm20,%%zmm21,%%zmm22,%%zmm23)
 #define SAVE_h_m16n20 SAVE_h_m16n16 unit_save_m16n4(%%zmm24,%%zmm25,%%zmm26,%%zmm27)
 #define SAVE_h_m16n24 SAVE_h_m16n20 unit_save_m16n4(%%zmm28,%%zmm29,%%zmm30,%%zmm31)
-#define SAVE_m16(ndim) SAVE_h_m16n##ndim "addq $256,%2;"
+#define SAVE_m16(ndim) SAVE_h_m16n##ndim
 #define COMPUTE_m16(ndim) \
     INIT_m16n##ndim\
     "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15; movq %2,%5; xorq %%r10,%%r10;"\
@@ -230,28 +230,21 @@
 #define INIT_m8n16 INIT_m8n12 unit_init_m8n4(%%zmm14,%%zmm15)
 #define INIT_m8n20 INIT_m8n16 unit_init_m8n4(%%zmm16,%%zmm17)
 #define INIT_m8n24 INIT_m8n20 unit_init_m8n4(%%zmm18,%%zmm19)
-#define SAVE_h_m8n1 "vfmadd213ps (%2),%%ymm0,%%ymm8; vmovups %%ymm8,(%2);"
+#define SAVE_h_m8n1 "vfmadd213ps (%2),%%ymm0,%%ymm8; vmovups %%ymm8,(%2); addq $32,%2;"
 #define SAVE_h_m8n2 \
-    "vfmadd213ps (%2),%%ymm0,%%ymm8; vmovups %%ymm8,(%2);"\
-    "vfmadd213ps (%2,%3,1),%%ymm0,%%ymm9; vmovups %%ymm9,(%2,%3,1);"
+    "vpermt2ps %%zmm9, %%zmm3, %%zmm8;"\
+    "vfmadd213ps (%2),%%zmm0,%%zmm8; vmovups %%zmm8,(%2); addq $64,%2;"
 #define unit_save_m8n4(c1_no,c2_no)\
-    "vpermps %%zmm"#c1_no",%%zmm1,%%zmm"#c1_no"; vpermps %%zmm"#c2_no",%%zmm1,%%zmm"#c2_no";"\
-    "vextractf64x4 $1,%%zmm"#c1_no",%%ymm5; vextractf64x4 $1,%%zmm"#c2_no",%%ymm6;"\
-    "vmovups (%5),%%xmm4; vinsertf128 $1,(%5,%3,1),%%ymm4,%%ymm4; vfmadd231ps %%ymm"#c1_no",%%ymm0,%%ymm4;"\
-    "vmovups %%xmm4,(%5); vextractf128 $1,%%ymm4,(%5,%3,1);"\
-    "vmovups 16(%5),%%xmm4; vinsertf128 $1,16(%5,%3,1),%%ymm4,%%ymm4; vfmadd231ps %%ymm"#c2_no",%%ymm0,%%ymm4;"\
-    "vmovups %%xmm4,16(%5); vextractf128 $1,%%ymm4,16(%5,%3,1); leaq (%5,%3,2),%5;"\
-    "vmovups (%5),%%xmm4; vinsertf128 $1,(%5,%3,1),%%ymm4,%%ymm4; vfmadd231ps %%ymm5,%%ymm0,%%ymm4;"\
-    "vmovups %%xmm4,(%5); vextractf128 $1,%%ymm4,(%5,%3,1);"\
-    "vmovups 16(%5),%%xmm4; vinsertf128 $1,16(%5,%3,1),%%ymm4,%%ymm4; vfmadd231ps %%ymm6,%%ymm0,%%ymm4;"\
-    "vmovups %%xmm4,16(%5); vextractf128 $1,%%ymm4,16(%5,%3,1); leaq (%5,%3,2),%5;"
-#define SAVE_h_m8n4 "movq %2,%5;" unit_save_m8n4(8,9)
+    "vfmadd213ps (%5),%%zmm0,%%zmm"#c1_no"; vfmadd213ps 64(%5),%%zmm0,%%zmm"#c2_no";"\
+    "vmovups %%zmm"#c1_no",(%5); vmovups %%zmm"#c2_no",64(%5);"\
+    "leaq (%5,%3,4),%5;"
+#define SAVE_h_m8n4 "movq %2,%5;" "addq $128,%2;" unit_save_m8n4(8,9)
 #define SAVE_h_m8n8 SAVE_h_m8n4 unit_save_m8n4(10,11)
 #define SAVE_h_m8n12 SAVE_h_m8n8 unit_save_m8n4(12,13)
 #define SAVE_h_m8n16 SAVE_h_m8n12 unit_save_m8n4(14,15)
 #define SAVE_h_m8n20 SAVE_h_m8n16 unit_save_m8n4(16,17)
 #define SAVE_h_m8n24 SAVE_h_m8n20 unit_save_m8n4(18,19)
-#define SAVE_m8(ndim) SAVE_h_m8n##ndim "addq $32,%2;"
+#define SAVE_m8(ndim) SAVE_h_m8n##ndim
 #define COMPUTE_m8(ndim) \
     INIT_m8n##ndim\
     "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15;"\
@@ -286,21 +279,21 @@
 #define INIT_m4n16 INIT_m4n12 "vpxorq %%zmm11,%%zmm11,%%zmm11;"
 #define INIT_m4n20 INIT_m4n16 "vpxorq %%zmm12,%%zmm12,%%zmm12;"
 #define INIT_m4n24 INIT_m4n20 "vpxorq %%zmm13,%%zmm13,%%zmm13;"
-#define SAVE_h_m4n1 "vfmadd213ps (%2),%%xmm0,%%xmm8; vmovups %%xmm8,(%2);"
-#define SAVE_h_m4n2 "vfmadd213ps (%2),%%xmm0,%%xmm8; vmovups %%xmm8,(%2); vfmadd213ps (%2,%3,1),%%xmm0,%%xmm9; vmovups %%xmm9,(%2,%3,1);"
+#define SAVE_h_m4n1 "vfmadd213ps (%2),%%xmm0,%%xmm8; vmovups %%xmm8,(%2); addq $16,%2;"
+#define SAVE_h_m4n2\
+    "vpermt2ps %%zmm9, %%zmm3, %%zmm8;"\
+    "vfmadd213ps (%2),%%zmm0,%%zmm8; vmovups %%zmm8,(%2); addq $32,%2;"
 #define unit_save_m4n4(c1_no)\
-    "vpermps %%zmm"#c1_no",%%zmm1,%%zmm"#c1_no"; vextractf64x4 $1,%%zmm"#c1_no",%%ymm5;"\
-    "vmovups (%5),%%xmm4; vinsertf128 $1,(%5,%3,1),%%ymm4,%%ymm4; vfmadd231ps %%ymm0,%%ymm"#c1_no",%%ymm4;"\
-    "vmovups %%xmm4,(%5); vextractf128 $1,%%ymm4,(%5,%3,1); leaq (%5,%3,2),%5;"\
-    "vmovups (%5),%%xmm4; vinsertf128 $1,(%5,%3,1),%%ymm4,%%ymm4; vfmadd231ps %%ymm0,%%ymm5,%%ymm4;"\
-    "vmovups %%xmm4,(%5); vextractf128 $1,%%ymm4,(%5,%3,1); leaq (%5,%3,2),%5;"
-#define SAVE_h_m4n4 "movq %2,%5;" unit_save_m4n4(8)
+    "vfmadd213ps (%5),%%zmm0,%%zmm"#c1_no";"\
+    "vmovups %%zmm"#c1_no",(%5);"\
+    "leaq (%5,%3,4),%5;"
+#define SAVE_h_m4n4 "movq %2,%5;" "addq $64,%2;" unit_save_m4n4(8)
 #define SAVE_h_m4n8 SAVE_h_m4n4 unit_save_m4n4(9)
 #define SAVE_h_m4n12 SAVE_h_m4n8 unit_save_m4n4(10)
 #define SAVE_h_m4n16 SAVE_h_m4n12 unit_save_m4n4(11)
 #define SAVE_h_m4n20 SAVE_h_m4n16 unit_save_m4n4(12)
 #define SAVE_h_m4n24 SAVE_h_m4n20 unit_save_m4n4(13)
-#define SAVE_m4(ndim) SAVE_h_m4n##ndim "addq $16,%2;"
+#define SAVE_m4(ndim) SAVE_h_m4n##ndim
 #define COMPUTE_m4(ndim) \
     INIT_m4n##ndim\
     "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15;"\
@@ -316,14 +309,14 @@
     "vmovsd (%0),%%xmm1; addq $8,%0;"\
     "vbroadcastss (%1),%%xmm2; vfmadd231ps %%xmm1,%%xmm2,%%xmm4;"\
     "addq $4,%1;"
-#define SAVE_h_m2n1 "vmovsd (%2),%%xmm1; vfmadd213ps %%xmm1,%%xmm0,%%xmm4; vmovsd %%xmm4,(%2);"
+#define SAVE_h_m2n1 "vmovsd (%2),%%xmm1; vfmadd213ps %%xmm1,%%xmm0,%%xmm4; vmovsd %%xmm4,(%2);  addq $8,%2;"
 #define INIT_m2n2 INIT_m2n1 "vpxor %%xmm5,%%xmm5,%%xmm5;"
 #define KERNEL_k1m2n2 \
     "vmovsd (%0),%%xmm1; addq $8,%0;"\
     "vbroadcastss  (%1),%%xmm2; vfmadd231ps %%xmm1,%%xmm2,%%xmm4;"\
     "vbroadcastss 4(%1),%%xmm3; vfmadd231ps %%xmm1,%%xmm3,%%xmm5;"\
     "addq $8,%1;"
-#define SAVE_h_m2n2 SAVE_h_m2n1 "vmovsd (%2,%3,1),%%xmm1; vfmadd213ps %%xmm1,%%xmm0,%%xmm5; vmovsd %%xmm5,(%2,%3,1);"
+#define SAVE_h_m2n2 "vunpcklps %%xmm5, %%xmm4, %%xmm5; vfmadd213ps (%2),%%xmm0,%%xmm5; vmovups %%xmm5,(%2); addq $16,%2;"
 #define INIT_m2n4  INIT_m2n2
 #define INIT_m2n8  INIT_m2n4 "vpxor %%xmm6,%%xmm6,%%xmm6; vpxor %%xmm7,%%xmm7,%%xmm7;"
 #define INIT_m2n12 INIT_m2n8 "vpxor %%xmm8,%%xmm8,%%xmm8; vpxor %%xmm9,%%xmm9,%%xmm9;"
@@ -345,18 +338,16 @@
 #define KERNEL_h_k1m2n24 KERNEL_h_k1m2n20 "vmovups (%%r15,%%r12,2),%%xmm3; vfmadd231ps %%xmm1,%%xmm3,%%xmm14; vfmadd231ps %%xmm2,%%xmm3,%%xmm15;"
 #define KERNEL_k1m2n24 KERNEL_h_k1m2n24 "addq $16,%%r15;"
 #define unit_save_m2n4(c1,c2) \
-    "vunpcklps "#c2","#c1",%%xmm1; vunpckhps "#c2","#c1",%%xmm2;"\
-    "vmovsd (%5),%%xmm3; vmovhpd (%5,%3,1),%%xmm3,%%xmm3; vfmadd213ps %%xmm3,%%xmm0,%%xmm1; vmovsd %%xmm1,(%5); vmovhpd %%xmm1,(%5,%3,1);"\
-    "leaq (%5,%3,2),%5;"\
-    "vmovsd (%5),%%xmm3; vmovhpd (%5,%3,1),%%xmm3,%%xmm3; vfmadd213ps %%xmm3,%%xmm0,%%xmm2; vmovsd %%xmm2,(%5); vmovhpd %%xmm2,(%5,%3,1);"\
-    "leaq (%5,%3,2),%5;"
-#define SAVE_h_m2n4  "movq %2,%5;" unit_save_m2n4(%%xmm4,%%xmm5)
+    "vfmadd213ps (%5),%%xmm0,"#c1"; vfmadd213ps 16(%5),%%xmm0,"#c2";"\
+    "vmovups "#c1",(%5); vmovups "#c2", 16(%5);"\
+    "leaq (%5,%3,4),%5;"
+#define SAVE_h_m2n4  "movq %2,%5;" "addq $32,%2;" unit_save_m2n4(%%xmm4,%%xmm5)
 #define SAVE_h_m2n8  SAVE_h_m2n4   unit_save_m2n4(%%xmm6,%%xmm7)
 #define SAVE_h_m2n12 SAVE_h_m2n8   unit_save_m2n4(%%xmm8,%%xmm9)
 #define SAVE_h_m2n16 SAVE_h_m2n12  unit_save_m2n4(%%xmm10,%%xmm11)
 #define SAVE_h_m2n20 SAVE_h_m2n16  unit_save_m2n4(%%xmm12,%%xmm13)
 #define SAVE_h_m2n24 SAVE_h_m2n20  unit_save_m2n4(%%xmm14,%%xmm15)
-#define SAVE_m2(ndim) SAVE_h_m2n##ndim "addq $8,%2;"
+#define SAVE_m2(ndim) SAVE_h_m2n##ndim
 #define COMPUTE_m2(ndim) \
     INIT_m2n##ndim\
     "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15;"\
@@ -379,8 +370,8 @@
     "vbroadcastss  (%0),%%xmm1; vfmadd231ps %%xmm3,%%xmm1,%%xmm4;"\
     "addq $4,%0;"
 #define SAVE_h_m1n2 \
-    "vmovss (%2),%%xmm3; vinsertps $16,(%2,%3,1),%%xmm3,%%xmm3; vfmadd213ps %%xmm3,%%xmm0,%%xmm4;"\
-    "vmovss %%xmm4,(%2); vextractps $1,%%xmm4,(%2,%3,1);"
+    "vmovsd (%2),%%xmm3; vfmadd213ps %%xmm3,%%xmm0,%%xmm4;"\
+    "vmovsd %%xmm4,(%2); addq $8,%2;"
 #define INIT_m1n4  INIT_m1n2
 #define INIT_m1n8  INIT_m1n4 "vpxor %%xmm5,%%xmm5,%%xmm5;"
 #define INIT_m1n12 INIT_m1n8 "vpxor %%xmm6,%%xmm6,%%xmm6;"
@@ -400,18 +391,16 @@
 #define KERNEL_h_k1m1n24 KERNEL_h_k1m1n20 "vfmadd231ps (%%r15,%%r12,2),%%xmm1,%%xmm9;"
 #define KERNEL_k1m1n24 KERNEL_h_k1m1n24 "addq $16,%%r15;"
 #define unit_save_m1n4(c1) \
-    "vpxor %%xmm10,%%xmm10,%%xmm10; vmovsd "#c1",%%xmm10,%%xmm2; vmovhlps "#c1",%%xmm10,%%xmm1;"\
-    "vmovss (%5),%%xmm3; vinsertps $16,(%5,%3,1),%%xmm3,%%xmm3; vfmadd213ps %%xmm3,%%xmm0,%%xmm2;"\
-    "vmovss %%xmm2,(%5); vextractps $1,%%xmm2,(%5,%3,1); leaq (%5,%3,2),%5;"\
-    "vmovss (%5),%%xmm3; vinsertps $16,(%5,%3,1),%%xmm3,%%xmm3; vfmadd213ps %%xmm3,%%xmm0,%%xmm1;"\
-    "vmovss %%xmm1,(%5); vextractps $1,%%xmm1,(%5,%3,1); leaq (%5,%3,2),%5;"
-#define SAVE_h_m1n4 "movq %2,%5;" unit_save_m1n4(%%xmm4)
+    "vfmadd213ps (%5),%%xmm0,"#c1";"\
+    "vmovups "#c1",(%5);"\
+    "leaq (%5,%3,4),%5;"
+#define SAVE_h_m1n4 "movq %2,%5;" "addq $16,%2;"unit_save_m1n4(%%xmm4)
 #define SAVE_h_m1n8  SAVE_h_m1n4  unit_save_m1n4(%%xmm5)
 #define SAVE_h_m1n12 SAVE_h_m1n8  unit_save_m1n4(%%xmm6)
 #define SAVE_h_m1n16 SAVE_h_m1n12 unit_save_m1n4(%%xmm7)
 #define SAVE_h_m1n20 SAVE_h_m1n16 unit_save_m1n4(%%xmm8)
 #define SAVE_h_m1n24 SAVE_h_m1n20 unit_save_m1n4(%%xmm9)
-#define SAVE_m1(ndim) SAVE_h_m1n##ndim "addq $4,%2;"
+#define SAVE_m1(ndim) SAVE_h_m1n##ndim
 #define COMPUTE_m1(ndim) \
     INIT_m1n##ndim\
     "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15;"\
@@ -428,14 +417,14 @@
 #define COMPUTE(ndim) {\
     next_b = b_pointer + ndim * K;\
     __asm__ __volatile__(\
-    "vbroadcastss %7,%%zmm0; vmovups %9,%%zmm1; vmovups %10,%%zmm2; vmovups %11,%%zmm3;"\
-    "movq $0x33, %%r11; kmovq %%r11, %%k2; movq $0xCC, %%r11; kmovq %%r11, %%k3;"\
+    "vbroadcastss %7,%%zmm0; vmovups %13,%%zmm1; vmovups %12,%%zmm2; vmovups %11,%%zmm3;"\
     "movq %4,%%r13; movq %4,%%r12; salq $4,%%r12; movq %1,%%r14; movq %8,%%r11;"\
     "cmpq $16,%%r11;jb 33101"#ndim"f;"\
     "33109"#ndim":\n\t"\
     COMPUTE_m16(ndim)\
     "subq $16,%%r11;cmpq $16,%%r11;jnb 33109"#ndim"b;"\
     "33101"#ndim":\n\t"\
+    "vmovups %9,%%zmm1; vmovups %10,%%zmm2; vmovups %14,%%zmm3;"\
     "cmpq $8,%%r11;jb 33102"#ndim"f;"\
     COMPUTE_m8(ndim)\
     "subq $8,%%r11;"\
@@ -452,18 +441,17 @@
     COMPUTE_m1(ndim)\
     "33105"#ndim":\n\t"\
     "movq %%r13,%4; movq %%r14,%1; vzeroupper;"\
-    :"+r"(a_pointer),"+r"(b_pointer),"+r"(c_pointer),"+r"(ldc_in_bytes),"+r"(K),"+r"(ctemp),"+r"(next_b):"m"(ALPHA),"m"(M),"m"(perm[0]),"m"(permil[0]),"m"(strides[0])\
+    :"+r"(a_pointer),"+r"(b_pointer),"+r"(c_pointer),"+r"(ldc_in_bytes),"+r"(K),"+r"(ctemp),"+r"(next_b):"m"(ALPHA),"m"(M),"m"(perm[0]),"m"(permil[0]),"m"(permt1[0]),"m"(permt2[0]),"m"(permt3[0]),"m"(shuff[0])\
     :"r10","r11","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14",\
     "zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31",\
-    "cc", "k1", "k2", "k3", "memory");\
+    "cc","memory");\
     a_pointer -= M * K; b_pointer += ndim * K; c_pointer += LDC * (ndim - 3) - M;\
 }
 
 #define COMPUTE_n24 {\
     next_b = b_pointer + 24 * K;\
     __asm__ __volatile__(\
-    "vbroadcastss %8,%%zmm0; vmovups %10,%%zmm1; vmovups %11,%%zmm2; vmovups %12,%%zmm3;"\
-    "movq $0x33, %%r11; kmovq %%r11, %%k2; movq $0xCC, %%r11; kmovq %%r11, %%k3;"\
+    "vbroadcastss %8,%%zmm0; vmovups %14,%%zmm1; vmovups %13,%%zmm2; vmovups %12,%%zmm3;"\
     "movq %4,%%r13; movq %4,%%r12; salq $4,%%r12; movq %1,%%r14; movq %9,%%r11;"\
     "cmpq $32,%%r11;jb 3310024f;"\
     COMPUTE_m16n24_LINIT "subq $16,%%r11; cmpq $32,%%r11;jb 3310724f;"\
@@ -480,6 +468,7 @@
     "subq $16,%%r11;"\
     "3310124:\n\t"\
     "cmpq $8,%%r11;jb 3310224f;"\
+    "vmovups %10,%%zmm1; vmovups %11,%%zmm2;vmovups %15,%%zmm3;"\
     COMPUTE_m8(24)\
     "subq $8,%%r11;"\
     "3310224:\n\t"\
@@ -495,10 +484,10 @@
     COMPUTE_m1(24)\
     "3310524:\n\t"\
     "movq %%r13,%4; movq %%r14,%1; vzeroupper;"\
-    :"+r"(a_pointer),"+r"(b_pointer),"+r"(c_pointer),"+r"(ldc_in_bytes),"+r"(K),"+r"(ctemp),"+r"(next_b),"+r"(wscr):"m"(ALPHA),"m"(M),"m"(perm[0]),"m"(permil[0]),"m"(strides[0])\
+    :"+r"(a_pointer),"+r"(b_pointer),"+r"(c_pointer),"+r"(ldc_in_bytes),"+r"(K),"+r"(ctemp),"+r"(next_b),"+r"(wscr):"m"(ALPHA),"m"(M),"m"(perm[0]),"m"(permil[0]),"m"(permt1[0]),"m"(permt2[0]),"m"(permt3[0]),"m"(shuff[0])\
     :"r10","r11","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14",\
     "zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31",\
-    "cc", "k1", "k2", "k3" "memory");\
+    "cc","memory");\
     a_pointer -= M * K; b_pointer += 24 * K; c_pointer += LDC * 21 - M;\
 }
 
@@ -507,11 +496,15 @@ gemm_kernel_pre(long m, long n, long k, float alpha, float * __restrict__ A, flo
 {
     if(m==0||n==0||k==0||alpha==(float)0.0) return 0;
     float scr[192]; float *wscr = scr;
+    int8_t mu = 0, su = 0;
     int64_t ldc_in_bytes = (int64_t)LDC * sizeof(float);float ALPHA = alpha;
     int64_t M = (int64_t)m, K = (int64_t)k;
     int32_t perm[16] = {0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15};
-    uint64_t permil[8] = {10,14,2,6,11,15,3,7};
-    uint64_t strides[8] = {0,4,8,12,1,5,9,13};
+    int32_t permil[16] = {0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3};
+    uint64_t permt1[8] = {0,4,8,12,1,5,9,13};
+    uint64_t permt2[8] = {10,14,2,6,11,15,3,7};
+    uint64_t permt3[8] = {0,4,1,5,2,6,3,7};
+    int32_t shuff[16] = {0,16,1,17,2,18,3,19,4,20,5,21,6,22,7,23};
     long n_count = n;
     float *a_pointer = A,*b_pointer = B,*c_pointer = C,*ctemp = C,*next_b = B;
 #if defined(__clang__)
@@ -524,8 +517,13 @@ gemm_kernel_pre(long m, long n, long k, float alpha, float * __restrict__ A, flo
     for(;n_count>11;n_count-=12) COMPUTE(12)
     for(;n_count>7;n_count-=8) COMPUTE(8)
     for(;n_count>3;n_count-=4) COMPUTE(4)
+    if(n_count>1) mu = 2;
     for(;n_count>1;n_count-=2) COMPUTE(2)
-    if(n_count>0) COMPUTE(1)
+    if(n_count>0){
+        // if (LDC < 3) su = 1;
+        c_pointer += LDC * mu + su;
+        COMPUTE(1)
+    }
     return 0;
 }
 #include <immintrin.h>

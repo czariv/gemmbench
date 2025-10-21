@@ -1,36 +1,32 @@
-# Compiler, Simmulator and debbuger
+# Compiler, Assembler, Debugger
 CC := clang
 AS := clang
 GDB := gdb
 
-# Compiler and linker flags
-# Read values from JSON
-GEMM_UNROLL_M=$(shell jq -r 'kernel.gemm_unroll_m' $(CONFIG_FILE))
-GEMM_UNROLL_N=$(shell jq -r 'kernel.gemm_unroll_n' $(CONFIG_FILE))
-GEMM_P=$(shell jq -r 'tiling.gemm_p' $(CONFIG_FILE))
-GEMM_Q=$(shell jq -r 'tiling.gemm_q' $(CONFIG_FILE))
-GEMM_R=$(shell jq -r 'tiling.gemm_r' $(CONFIG_FILE))
+# Default directories
+ifeq ($(DRIVERDIR),)
+	DRIVERDIR := ./driver
+endif
 
-# Pass them as compiler flags
-# LDFLAGS += -static 
+# Targets
+TARGET_EXE = gemmvbench
+TARGET_LIB = libgemm.so
 
+# Determine if kernel directory is needed
 ifneq ($(filter run gdb distclean,$(MAKECMDGOALS)),)
     NEED_KERNELDIR := no
 else
     NEED_KERNELDIR := yes
 endif
 
-ifeq ($(DRIVERDIR),)
-	DRIVERDIR := ./driver
-endif
-
+# Load parameters from JSON
 ifeq ($(NEED_KERNELDIR),yes)
 	ifeq ($(KERNELDIR),)
-        	$(error KERNELDIR is required. Usage: make <target> KERNELDIR=<file.json>)
+        	$(error KERNELDIR is required. Usage: make <target> KERNELDIR=<path/to/kernel_dir>)
 	else
 		CONFIGFILE := $(KERNELDIR)/parameter.json
 
-		# Extract parameters from JSON using jq
+		# Extract parameters using jq
 		TYPE := $(shell jq -r '.params.TYPE' $(CONFIGFILE))
 		BUFFER_SIZE := $(shell jq -r '.params.BUFFER_SIZE' $(CONFIGFILE))
 		EVAL_THRESHOLD := $(shell jq -r '.params.EVAL_THRESHOLD' $(CONFIGFILE))
@@ -40,82 +36,108 @@ ifeq ($(NEED_KERNELDIR),yes)
 		GEMM_Q := $(shell jq -r '.tiling.GEMM_Q' $(CONFIGFILE))
 		GEMM_R := $(shell jq -r '.tiling.GEMM_R' $(CONFIGFILE))
 
-		CFLAGS += -g -O3 -march=skylake-avx512  -Wall -Wextra -I${DRIVERDIR} -I${KERNELDIR} \
-				-DTYPE=$(TYPE) \
-				-DBUFFER_SIZE=$(BUFFER_SIZE) \
-				-DEVAL_THRESHOLD=$(EVAL_THRESHOLD) \
-				-DGEMM_UNROLL_M=$(GEMM_UNROLL_M) \
-				-DGEMM_UNROLL_N=$(GEMM_UNROLL_N) \
-				-DGEMM_P=$(GEMM_P) \
-				-DGEMM_Q=$(GEMM_Q) \
-				-DGEMM_R=$(GEMM_R)
+		CFLAGS += -fPIC -g -O3 -march=skylake-avx512 -Wall -Wextra \
+			-I${DRIVERDIR} -I${KERNELDIR} \
+			-DTYPE=$(TYPE) \
+			-DBUFFER_SIZE=$(BUFFER_SIZE) \
+			-DEVAL_THRESHOLD=$(EVAL_THRESHOLD) \
+			-DGEMM_UNROLL_M=$(GEMM_UNROLL_M) \
+			-DGEMM_UNROLL_N=$(GEMM_UNROLL_N) \
+			-DGEMM_P=$(GEMM_P) \
+			-DGEMM_Q=$(GEMM_Q) \
+			-DGEMM_R=$(GEMM_R)
+
 		ifeq ($(DEBUG), 1)
 			CFLAGS += -DTIME
 		else ifeq ($(DEBUG), 2)
-			CFLAGS += -DTIME -DPERF
+			CFLAGS += -DTIME -DDEBUG
 		else ifeq ($(DEBUG), 3)
 			CFLAGS += -DTIME -DPERF -DDEBUG
 		endif
-		ifneq ($(SEQ), )
-			SRCS =  ./main_sequential.c \
-				${DRIVERDIR}/interface.c \
-				${DRIVERDIR}/level3.c \
+
+		# Source files for driver and kernel
+		COMMON_SRCS = ${DRIVERDIR}/interface.c \
+			${DRIVERDIR}/level3.c \
+			$(KERNELDIR)/gemm_icopy.c \
+			$(KERNELDIR)/gemm_ocopy.c \
+			$(KERNELDIR)/gemm_kernel.c \
+			$(KERNELDIR)/gemm_beta.c
+
+		ifneq ($(SEQ),)
+			COMMON_SRCS += \
 				${DRIVERDIR}/interface_pre.c \
 				${DRIVERDIR}/level3_pre.c \
 				${DRIVERDIR}/interface_pos.c \
 				${DRIVERDIR}/level3_pos.c \
 				${DRIVERDIR}/interface_mid.c \
 				${DRIVERDIR}/level3_mid.c \
-				$(KERNELDIR)/gemm_icopy.c \
-				$(KERNELDIR)/gemm_ocopy.c \
-				$(KERNELDIR)/gemm_kernel.c \
-				$(KERNELDIR)/gemm_kernel_pre.c \
-				$(KERNELDIR)/gemm_beta.c
-		else
-			SRCS = ./main.c \
-				${DRIVERDIR}/interface.c \
-				${DRIVERDIR}/level3.c \
-				$(KERNELDIR)/gemm_icopy.c \
-				$(KERNELDIR)/gemm_ocopy.c \
-				$(KERNELDIR)/gemm_kernel.c \
-				$(KERNELDIR)/gemm_beta.c
+				$(KERNELDIR)/gemm_kernel_pre.c
 		endif
-		OBJS = $(SRCS:.c=.o)
 	endif
 endif
 
-# Executable name
-TARGET = gemmvbench
+# Choose build mode
+ifeq ($(MODE),lib)
+	TARGET := $(TARGET_LIB)
+	SRCS := $(COMMON_SRCS)
+else ifeq ($(MODE),exe)
+	TARGET := $(TARGET_EXE)
+	ifneq ($(SEQ),)
+		SRCS := ./main_sequential.c $(COMMON_SRCS)
+	else
+		SRCS := ./main.c $(COMMON_SRCS)
+	endif
+else
+	# Default to executable mode
+	TARGET := $(TARGET_EXE)
+	ifneq ($(SEQ),)
+		SRCS := ./main_sequential.c $(COMMON_SRCS)
+	else
+		SRCS := ./main.c $(COMMON_SRCS)
+	endif
+endif
 
-# Build executable
+OBJS := $(SRCS:.c=.o)
+
+# Default target
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CC) -I$(INCLUDE_PATH) -L$(LIB_PATH) $(CFLAGS) -o $(TARGET) $(OBJS) $(LIB_NAME) $(LDFLAGS)
+# Build shared library
+lib: MODE=lib
+lib: $(TARGET_LIB)
 
-# Compile source files into object files
+$(TARGET_LIB): $(OBJS)
+	$(CC) -shared -o $@ $(OBJS) $(LDFLAGS)
+
+# Build executable
+exe: MODE=exe
+exe: $(TARGET_EXE)
+
+$(TARGET_EXE): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+
+# Compile C sources
 %.o: %.c
-	$(CC) -I$(INCLUDE_PATH) -L$(LIB_PATH) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# Assemble .s files into object files
+# Assemble .s sources
 %.o: %.s
 	$(AS) $(CFLAGS) -c $< -o $@
 
-# Run with QEMU
+# Run
 run:
-	./$(TARGET) 512 512 512 1 1 && echo "Success" || echo "Failure"
+	./$(TARGET_EXE) 512 512 512 1 1 && echo "Success" || echo "Failure"
 
-# Run with QEMU and GDB
+# Debug
 gdb:
-	$(GDB) --args $(TARGET) 16 24 256 1 1
+	$(GDB) --args $(TARGET_EXE) 16 24 256 1 1
 
-# Clean build files
+# Clean
 clean:
 	-rm -f $(OBJS) 1>/dev/null 2>&1
 
 distclean:
 	$(MAKE) clean
-	-rm -f $(TARGET) 1>/dev/null 2>&1
+	-rm -f $(TARGET_EXE) $(TARGET_LIB) 1>/dev/null 2>&1
 
-.PHONY: all run gdb clean distclean
-
+.PHONY: all lib exe run gdb clean distclean

@@ -147,7 +147,7 @@ int gemm_tiling_pre(arg_t *args, long *range_m, long *range_n, float *sa, float 
                 // **** Native implementation **** //
                 // kernel_start();
                 kernel_s = clock();
-                KERNEL_OPERATION(min_i, min_jj, min_l, alpha, sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, min_i, m_from, js/GEMM_R * m_to + jjs);
+                KERNEL_OPERATION(min_i, min_jj, min_l, alpha, sa, sb + pad_min_l * (jjs - js)  * COMPSIZE * l1stride, c, min_i, m_from, jjs);
                 kernel_e = clock();
                 kernel += (double)(kernel_e - kernel_s) / CLOCKS_PER_SEC * 1000;
                 // kernel_stop();
