@@ -61,16 +61,14 @@ ifeq ($(NEED_KERNELDIR),yes)
 			$(KERNELDIR)/gemm_icopy.c \
 			$(KERNELDIR)/gemm_ocopy.c \
 			$(KERNELDIR)/gemm_kernel.c \
-			$(KERNELDIR)/gemm_beta.c
+			$(KERNELDIR)/gemm_beta.c \
+			$(KERNELDIR)/generic_icopy.c \
+			$(KERNELDIR)/generic_ocopy.c
 
 		ifneq ($(SEQ),)
 			COMMON_SRCS += \
-				${DRIVERDIR}/interface_pre.c \
-				${DRIVERDIR}/level3_pre.c \
-				${DRIVERDIR}/interface_pos.c \
-				${DRIVERDIR}/level3_pos.c \
-				${DRIVERDIR}/interface_mid.c \
-				${DRIVERDIR}/level3_mid.c \
+				${DRIVERDIR}/interface_seq.c \
+				${DRIVERDIR}/level3_seq.c \
 				$(KERNELDIR)/gemm_kernel_pre.c
 		endif
 	endif

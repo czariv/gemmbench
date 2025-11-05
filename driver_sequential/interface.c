@@ -19,36 +19,74 @@ void reset_var(){
     icopy = ocopy = kernel = calling = 0.0;
 }
 
-#ifndef COLMAJOR
-void gemm(int M, int N, int K,
+int icopy_trans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
+    float *panel_start = (float *)A + ((long)Y + (long)X * (long)LDA);
+    return GEMM_ITCOPY(M, N, panel_start, LDA, BUFFER);
+}
+int icopy_notrans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
+    float *panel_start = (float *)A + ((long)X + (long)Y * (long)LDA);
+    return GEMM_INCOPY(M, N, panel_start, LDA, BUFFER);
+}
+int ocopy_notrans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
+    float *panel_start = (float *)A + ((long)X + (long)Y * (long)LDA);
+    return GEMM_ONCOPY(M, N, panel_start, LDA, BUFFER); 
+}
+int ocopy_trans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
+    float *panel_start = (float *)A + ((long)Y + (long)X * (long)LDA);
+    return GEMM_OTCOPY(M, N, panel_start, LDA, BUFFER);
+}
+
+void gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB,
+           int M, int N, int K,
            float alpha,
            float *a, int ldA,
            float *b, int ldB,
            float beta,
            float *c, int ldC){
-#else
-void gemm(int N, int M, int K,
-           float alpha,
-           float *b, int ldB,
-           float *a, int ldA,
-           float beta,
-           float *c, int ldC){
-#endif
     arg_t args;
     float *buffer;
     float *sa, *sb;
+    copy_op_func_t copy_a;
+    copy_op_func_t copy_b;
 
-    args.m = M;
-    args.n = N;
-    args.k = K;
+    if (TransA == CblasNoTrans) {
+        copy_a = icopy_notrans_op;
+    } else {
+        copy_a = icopy_trans_op;
+    }
 
-    args.a = (void *)a;
-    args.b = (void *)b;
-    args.c = (void *)c;
+    if (TransB == CblasNoTrans) {
+        copy_b = ocopy_notrans_op;
+    } else {
+        copy_b = ocopy_trans_op;
+    }
 
-    args.lda = ldA;
-    args.ldb = ldB;
-    args.ldc = ldC;
+    if (Order != CblasRowMajor) {
+        args.m = M;
+        args.n = N;
+        args.k = K;
+
+        args.a = (void *)a;
+        args.b = (void *)b;
+        args.c = (void *)c;
+
+        args.lda = ldA;
+        args.ldb = ldB;
+        args.ldc = ldC;
+    }
+    else if (Order == CblasRowMajor) {
+        args.m = N;
+        args.n = M;
+        args.k = K;
+
+        args.a = (void *)b;
+        args.b = (void *)a;
+        args.c = (void *)c;
+
+        args.lda = ldB;
+        args.ldb = ldA;
+        args.ldc = ldC;
+    }
 
     args.alpha = alpha;
     args.beta  = beta;
@@ -60,7 +98,7 @@ void gemm(int N, int M, int K,
     sa = (float *)( buffer );
     sb = (float *)( (long) sa + (BUFFER_SIZE/SIZE)/2 );
 
-    gemm_tiling(&args, NULL, NULL, sa, sb);
+    gemm_tiling(&args, NULL, NULL, sa, sb, copy_a, copy_b);
 
     free(buffer);
 

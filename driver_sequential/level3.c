@@ -8,10 +8,6 @@
     BETA, NULL, 0, NULL, 0, \
     (float *)(C) + ((N_FROM) + (M_FROM) * (LDC)), LDC)
 
-#define ICOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ITCOPY(M, N, (float *)(A) + ((Y) + (X) * (LDA)), LDA, BUFFER);
-
-#define OCOPY_OPERATION(M, N, A, LDA, X, Y, BUFFER) GEMM_ONCOPY(M, N, (float *)(A) + ((X) + (Y) * (LDA)), LDA, BUFFER);
-
 #define KERNEL_OPERATION(M, N, K, ALPHA, SA, SB, C, LDC, X, Y) \
 	KERNEL_FUNC(M, N, K, ALPHA, SA, SB, (float *)(C) + ((X) + (Y) * LDC), LDC)
 
@@ -25,7 +21,9 @@
 #define N	args -> n
 #define K	args -> k
 
-int gemm_tiling(arg_t *args, long *range_m, long *range_n, float *sa, float *sb){
+int gemm_tiling(arg_t *args, long *range_m, long *range_n, float *sa, float *sb, 
+           copy_op_func_t ICOPY_OPERATION,
+           copy_op_func_t OCOPY_OPERATION){
     long k, lda, ldb, ldc;
     float alpha, beta;
     float *a, *b;
