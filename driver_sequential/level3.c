@@ -6,7 +6,7 @@
 #define BETA_OPERATION(M_FROM, M_TO, N_FROM, N_TO, BETA, C, LDC) \
 	GEMM_BETA((M_TO) - (M_FROM), (N_TO - N_FROM), 0, \
     BETA, NULL, 0, NULL, 0, \
-    (float *)(C) + ((N_FROM) + (M_FROM) * (LDC)), LDC)
+    (float *)(C) + ((M_FROM) + (N_FROM) * (LDC)), LDC)
 
 #define KERNEL_OPERATION(M, N, K, ALPHA, SA, SB, C, LDC, X, Y) \
 	KERNEL_FUNC(M, N, K, ALPHA, SA, SB, (float *)(C) + ((X) + (Y) * LDC), LDC)
@@ -65,10 +65,8 @@ int gemm_tiling(arg_t *args, long *range_m, long *range_n, float *sa, float *sb,
         n_to   = *(((long *)range_n) + 1);
     }
 
-    if (beta) {
-        if (beta != 1) {
-            BETA_OPERATION(m_from, m_to, n_from, n_to, beta, c, ldc);
-        }
+    if (beta != 1) {
+        BETA_OPERATION(m_from, m_to, n_from, n_to, beta, c, ldc);
     }
 
     if ((k == 0) || (alpha == 0)) return 0;

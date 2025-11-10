@@ -82,8 +82,8 @@ int kernel_op(long M, long N, long K, float ALPHA, float* SA, float* SB, float* 
 void gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB,
            int M, int N, int K,
            float alpha,
-           float *a, int ldA,
-           float *b, int ldB,
+           const float *a, int ldA,
+           const float *b, int ldB,
            float beta,
            float *c, int ldC);
 
@@ -104,8 +104,8 @@ int beta_operation(long m, long n, long dummy1, float beta, float *dummy2, long 
 void gemm_seq(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB, const enum CBLAS_SEQ Seq,
            int M, int N, int K,
            float alpha,
-           float *a, int ldA,
-           float *b, int ldB,
+           const float *a, int ldA,
+           const float *b, int ldB,
            float beta,
            float *c, int ldC);
 

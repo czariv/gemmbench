@@ -13,8 +13,8 @@ int kernel_op(long M, long N, long K, float ALPHA, float* SA, float* SB, float* 
 void gemm_seq(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB, const enum CBLAS_SEQ Seq,
            int M, int N, int K,
            float alpha,
-           float *a, int ldA,
-           float *b, int ldB,
+           const float *a, int ldA,
+           const float *b, int ldB,
            float beta,
            float *c, int ldC){
     arg_t args;
@@ -23,18 +23,6 @@ void gemm_seq(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, c
     copy_op_func_t copy_a;
     copy_op_func_t copy_b;
     kernel_op_func_t kernel;
-
-    if (TransA == CblasNoTrans) {
-        copy_a = icopy_notrans_op;
-    } else {
-        copy_a = icopy_trans_op;
-    }
-
-    if (TransB == CblasNoTrans) {
-        copy_b = ocopy_notrans_op;
-    } else {
-        copy_b = ocopy_trans_op;
-    }
 
     if (Order != CblasRowMajor) {
         args.m = M;
@@ -48,6 +36,12 @@ void gemm_seq(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, c
         args.lda = ldA;
         args.ldb = ldB;
         args.ldc = ldC;
+
+        if (TransA == CblasNoTrans) copy_a = icopy_notrans_op;
+        if (TransA == CblasTrans)   copy_a = icopy_trans_op;
+
+        if (TransB == CblasNoTrans) copy_b = ocopy_notrans_op;
+        if (TransB == CblasNoTrans) copy_b = ocopy_trans_op;
     }
     else if (Order == CblasRowMajor) {
         args.m = N;
@@ -61,6 +55,11 @@ void gemm_seq(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, c
         args.lda = ldB;
         args.ldb = ldA;
         args.ldc = ldC;
+        if (TransB == CblasNoTrans) copy_a = icopy_notrans_op;
+        if (TransB == CblasTrans)   copy_a = icopy_trans_op;
+
+        if (TransA == CblasNoTrans) copy_b = ocopy_notrans_op;
+        if (TransA == CblasTrans)   copy_b = ocopy_trans_op;
     }
 
     if ( (Seq == CblasPre) || (Seq == CblasMid)) {

@@ -20,27 +20,27 @@ void reset_var(){
 }
 
 int icopy_trans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
-    float *panel_start = (float *)A + ((long)Y + (long)X * (long)LDA);
-    return GEMM_ITCOPY(M, N, panel_start, LDA, BUFFER);
-}
-int icopy_notrans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
     float *panel_start = (float *)A + ((long)X + (long)Y * (long)LDA);
     return GEMM_INCOPY(M, N, panel_start, LDA, BUFFER);
 }
-int ocopy_notrans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
-    float *panel_start = (float *)A + ((long)X + (long)Y * (long)LDA);
-    return GEMM_ONCOPY(M, N, panel_start, LDA, BUFFER); 
+int icopy_notrans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
+    float *panel_start = (float *)A + ((long)Y + (long)X * (long)LDA);
+    return GEMM_ITCOPY(M, N, panel_start, LDA, BUFFER);
 }
 int ocopy_trans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
     float *panel_start = (float *)A + ((long)Y + (long)X * (long)LDA);
     return GEMM_OTCOPY(M, N, panel_start, LDA, BUFFER);
 }
+int ocopy_notrans_op(long M, long N, float *A, long LDA, int X, int Y, float *BUFFER) {
+    float *panel_start = (float *)A + ((long)X + (long)Y * (long)LDA);
+    return GEMM_ONCOPY(M, N, panel_start, LDA, BUFFER); 
+}
 
 void gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB,
            int M, int N, int K,
            float alpha,
-           float *a, int ldA,
-           float *b, int ldB,
+           const float *a, int ldA,
+           const float *b, int ldB,
            float beta,
            float *c, int ldC){
     arg_t args;
@@ -49,19 +49,7 @@ void gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const
     copy_op_func_t copy_a;
     copy_op_func_t copy_b;
 
-    if (TransA == CblasNoTrans) {
-        copy_a = icopy_notrans_op;
-    } else {
-        copy_a = icopy_trans_op;
-    }
-
-    if (TransB == CblasNoTrans) {
-        copy_b = ocopy_notrans_op;
-    } else {
-        copy_b = ocopy_trans_op;
-    }
-
-    if (Order != CblasRowMajor) {
+    if (Order == CblasColMajor) {
         args.m = M;
         args.n = N;
         args.k = K;
@@ -73,8 +61,13 @@ void gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const
         args.lda = ldA;
         args.ldb = ldB;
         args.ldc = ldC;
-    }
-    else if (Order == CblasRowMajor) {
+
+        if (TransA == CblasNoTrans) copy_a = icopy_notrans_op;
+        if (TransA == CblasTrans)   copy_a = icopy_trans_op;
+
+        if (TransB == CblasNoTrans) copy_b = ocopy_notrans_op;
+        if (TransB == CblasTrans)   copy_b = ocopy_trans_op;
+    } else if (Order == CblasRowMajor) {
         args.m = N;
         args.n = M;
         args.k = K;
@@ -86,6 +79,12 @@ void gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const
         args.lda = ldB;
         args.ldb = ldA;
         args.ldc = ldC;
+
+        if (TransB == CblasNoTrans) copy_a = icopy_notrans_op;
+        if (TransB == CblasTrans)   copy_a = icopy_trans_op;
+
+        if (TransA == CblasNoTrans) copy_b = ocopy_notrans_op;
+        if (TransA == CblasTrans)   copy_b = ocopy_trans_op;
     }
 
     args.alpha = alpha;
