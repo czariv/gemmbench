@@ -84,121 +84,111 @@
     #ndim"016164:\n\t"\
     "prefetcht0 (%%r14); prefetcht0 64(%%r14);"\
     SAVE_m16(ndim)
-#define unit_save_m16n2_rscr(c1,c2,scr_off) \
-    "vunpcklps "#c2","#c1",%%zmm6; vunpckhps "#c2","#c1",%%zmm7; vunpcklpd %%zmm7,%%zmm6,%%zmm4; vunpckhpd %%zmm7,%%zmm6,%%zmm5;"\
-    "vmovups "#scr_off"(%7),%%zmm6; vfmadd213ps -64(%5),%%zmm0,%%zmm6; vfmadd213ps (%5),%%zmm0,%%zmm4;"\
-    "vmovups %%zmm6,-64(%5); vmovups %%zmm4,(%5);"\
-    "vmovups "#scr_off"+64(%7),%%zmm6; vfmadd213ps -64(%5,%3,1),%%zmm0,%%zmm6; vfmadd213ps (%5,%3,1),%%zmm0,%%zmm5;"\
-    "vmovups %%zmm6,-64(%5,%3,1); vmovups %%zmm5,(%5,%3,1); leaq (%5,%3,2),%5;"
-#define unit_save_m16n2_wscr(c1,c2,scr_off) \
-    "vunpcklps "#c2","#c1",%%zmm6; vunpckhps "#c2","#c1",%%zmm7; vunpcklpd %%zmm7,%%zmm6,%%zmm4; vunpckhpd %%zmm7,%%zmm6,%%zmm5;"\
-    "vmovups %%zmm4,"#scr_off"(%7); vmovups %%zmm5,"#scr_off"+64(%7);"
-#define COMPUTE_m16n24_LSAVE \
-    INIT_m16n24\
+/* Software-pipelined m16n24 save path, adapted to the PROPAGATED layout.
+ *
+ * Upstream OpenBLAS pipelines this loop by deferring half of each m16 block's
+ * columns into a scratch buffer and flushing them one block later, so a single
+ * store covers two adjacent m16 blocks at once. That works because in the
+ * canonical column-major layout consecutive m16 blocks sit 64 B apart, making
+ * the natural unit of deferral one column (16 floats) and the merged store
+ * 128 B.
+ *
+ * LP-GEMM's propagated layout instead stores each (m16 x n4) tile as 256 B
+ * contiguous, with consecutive m16 blocks 256 B apart (see unit_save_m16n4 and
+ * the "addq $256,%2" block advance). The pipeline carries over unchanged in
+ * structure, but at n4-group granularity: three of the six n4 groups are
+ * deferred (3 * 4 * 64 B = 768 B, exactly filling scr[192]) and the merged
+ * store spans 512 B.
+ *
+ * These macros used to be the upstream column-major ones
+ * used verbatim: they emitted a canonical-layout footprint and left part of the
+ * propagated footprint unwritten. That was the COMPUTE_n24 bug.
+ */
+#define unit_save_m16n4_wscr(c1,c2,c3,c4,scr_off) \
+    "vshuff32x4 $0x44, "#c3","#c1", %%zmm4; vshuff32x4 $0x44, "#c4","#c2", %%zmm5;"\
+    "vshuff32x4 $0xEE, "#c3","#c1", %%zmm6; vshuff32x4 $0xEE, "#c4","#c2", %%zmm7;"\
+    "vmovapd %%zmm4, "#c1"; vpermt2pd %%zmm5, %%zmm3, %%zmm4; vpermt2pd "#c1", %%zmm2, %%zmm5;"\
+    "vmovapd %%zmm6, "#c2"; vpermt2pd %%zmm7, %%zmm3, %%zmm6; vpermt2pd "#c2", %%zmm2, %%zmm7;"\
+    "vmovups %%zmm4,"#scr_off"(%7); vmovups %%zmm5,"#scr_off"+64(%7);"\
+    "vmovups %%zmm6,"#scr_off"+128(%7); vmovups %%zmm7,"#scr_off"+192(%7);"
+/* Flush the previous m16 block's deferred n4 group from scratch into the 256 B
+ * immediately below the current tile, then store the current tile. c1-c4 are
+ * dead once the permutes above have consumed them, so they are reused as the
+ * scratch-load temporaries. */
+#define unit_save_m16n4_rscr(c1,c2,c3,c4,scr_off) \
+    "vshuff32x4 $0x44, "#c3","#c1", %%zmm4; vshuff32x4 $0x44, "#c4","#c2", %%zmm5;"\
+    "vshuff32x4 $0xEE, "#c3","#c1", %%zmm6; vshuff32x4 $0xEE, "#c4","#c2", %%zmm7;"\
+    "vmovapd %%zmm4, "#c1"; vpermt2pd %%zmm5, %%zmm3, %%zmm4; vpermt2pd "#c1", %%zmm2, %%zmm5;"\
+    "vmovapd %%zmm6, "#c2"; vpermt2pd %%zmm7, %%zmm3, %%zmm6; vpermt2pd "#c2", %%zmm2, %%zmm7;"\
+    "vmovups "#scr_off"(%7),"#c1"; vfmadd213ps -256(%5),%%zmm0,"#c1"; vmovups "#c1",-256(%5);"\
+    "vmovups "#scr_off"+64(%7),"#c2"; vfmadd213ps -192(%5),%%zmm0,"#c2"; vmovups "#c2",-192(%5);"\
+    "vmovups "#scr_off"+128(%7),"#c3"; vfmadd213ps -128(%5),%%zmm0,"#c3"; vmovups "#c3",-128(%5);"\
+    "vmovups "#scr_off"+192(%7),"#c4"; vfmadd213ps -64(%5),%%zmm0,"#c4"; vmovups "#c4",-64(%5);"\
+    "vfmadd213ps (%5),%%zmm0,%%zmm4; vmovups %%zmm4,(%5);"\
+    "vfmadd213ps 64(%5),%%zmm0,%%zmm5; vmovups %%zmm5,64(%5);"\
+    "vfmadd213ps 128(%5),%%zmm0,%%zmm6; vmovups %%zmm6,128(%5);"\
+    "vfmadd213ps 192(%5),%%zmm0,%%zmm7; vmovups %%zmm7,192(%5); leaq (%5,%3,4),%5;"
+/* Deferred-half bookkeeping (scratch slots 0/256/512 always hold the three n4
+ * groups currently in flight):
+ *   LINIT/LSAVE  store groups 0-2 at their own tile, defer groups 3-5
+ *   RSAVE/RTAIL  store groups 3-5 (flushing the deferred 3-5), defer 0-2
+ *   LTAIL/RTAIL  terminate the pipeline by storing their second half directly
+ */
+#define SAVE_p_m16n24_L_direct \
+    unit_save_m16n4(%%zmm8,%%zmm9,%%zmm10,%%zmm11)\
+    unit_save_m16n4(%%zmm12,%%zmm13,%%zmm14,%%zmm15)\
+    unit_save_m16n4(%%zmm16,%%zmm17,%%zmm18,%%zmm19)
+#define SAVE_p_m16n24_R_direct \
+    unit_save_m16n4(%%zmm20,%%zmm21,%%zmm22,%%zmm23)\
+    unit_save_m16n4(%%zmm24,%%zmm25,%%zmm26,%%zmm27)\
+    unit_save_m16n4(%%zmm28,%%zmm29,%%zmm30,%%zmm31)
+#define SAVE_p_m16n24_L_rscr \
+    unit_save_m16n4_rscr(%%zmm8,%%zmm9,%%zmm10,%%zmm11,0)\
+    unit_save_m16n4_rscr(%%zmm12,%%zmm13,%%zmm14,%%zmm15,256)\
+    unit_save_m16n4_rscr(%%zmm16,%%zmm17,%%zmm18,%%zmm19,512)
+#define SAVE_p_m16n24_R_rscr \
+    unit_save_m16n4_rscr(%%zmm20,%%zmm21,%%zmm22,%%zmm23,0)\
+    unit_save_m16n4_rscr(%%zmm24,%%zmm25,%%zmm26,%%zmm27,256)\
+    unit_save_m16n4_rscr(%%zmm28,%%zmm29,%%zmm30,%%zmm31,512)
+#define SAVE_p_m16n24_L_wscr \
+    unit_save_m16n4_wscr(%%zmm8,%%zmm9,%%zmm10,%%zmm11,0)\
+    unit_save_m16n4_wscr(%%zmm12,%%zmm13,%%zmm14,%%zmm15,256)\
+    unit_save_m16n4_wscr(%%zmm16,%%zmm17,%%zmm18,%%zmm19,512)
+#define SAVE_p_m16n24_R_wscr \
+    unit_save_m16n4_wscr(%%zmm20,%%zmm21,%%zmm22,%%zmm23,0)\
+    unit_save_m16n4_wscr(%%zmm24,%%zmm25,%%zmm26,%%zmm27,256)\
+    unit_save_m16n4_wscr(%%zmm28,%%zmm29,%%zmm30,%%zmm31,512)
+/* Shared k-loop body. The %5 walk inside it is prefetch-only -- %5 is reset
+ * from %2 immediately before the saves -- so the prefetch distances inherited
+ * from the canonical layout affect performance, not correctness. */
+#define COMPUTE_m16n24_BODY(tag) \
     "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15; movq %2,%5;"\
-    "cmpq $16,%4; jb 24716162f; movq $16,%4;"\
-    "24716161:\n\t"\
+    "cmpq $16,%4; jb " tag "2f; movq $16,%4;"\
+    tag "1:\n\t"\
     KERNEL_k1m16n24 "addq $4,%4; testq $12,%4; movq $172,%%r10; cmovz %3,%%r10;"\
     KERNEL_k1m16n24 "prefetcht1 -64(%5); leaq -129(%5,%%r10,1),%5;"\
     KERNEL_k1m16n24 "prefetcht1 (%6); addq $32,%6; cmpq $208,%4; cmoveq %2,%5;"\
-    KERNEL_k1m16n24 "cmpq %4,%%r13; jnb 24716161b;"\
+    KERNEL_k1m16n24 "cmpq %4,%%r13; jnb " tag "1b;"\
     "movq %2,%5; negq %4; leaq 16(%%r13,%4,1),%4;"\
-    "24716162:\n\t"\
-    "testq %4,%4; jz 24716164f; movq %7,%%r10;"\
-    "24716163:\n\t"\
+    tag "2:\n\t"\
+    "testq %4,%4; jz " tag "4f; movq %7,%%r10;"\
+    tag "3:\n\t"\
     "prefetcht0 -64(%5); prefetcht0 (%5); prefetcht0 63(%5); addq %3,%5;"\
-    KERNEL_k1m16n24 "prefetcht0 (%%r10); addq $64,%%r10; decq %4; jnz 24716163b;"\
-    "24716164:\n\t"\
-    "prefetcht0 (%%r14); prefetcht0 64(%%r14); movq %2,%5; addq $64,%2;"\
-    unit_save_m16n2_rscr(%%zmm8,%%zmm9,0) unit_save_m16n2_rscr(%%zmm10,%%zmm11,128) unit_save_m16n2_rscr(%%zmm12,%%zmm13,256)\
-    unit_save_m16n2_rscr(%%zmm14,%%zmm15,384) unit_save_m16n2_rscr(%%zmm16,%%zmm17,512) unit_save_m16n2_rscr(%%zmm18,%%zmm19,640)\
-    unit_save_m16n2_wscr(%%zmm20,%%zmm21,0) unit_save_m16n2_wscr(%%zmm22,%%zmm23,128) unit_save_m16n2_wscr(%%zmm24,%%zmm25,256)\
-    unit_save_m16n2_wscr(%%zmm26,%%zmm27,384) unit_save_m16n2_wscr(%%zmm28,%%zmm29,512) unit_save_m16n2_wscr(%%zmm30,%%zmm31,640)
+    KERNEL_k1m16n24 "prefetcht0 (%%r10); addq $64,%%r10; decq %4; jnz " tag "3b;"\
+    tag "4:\n\t"\
+    "prefetcht0 (%%r14); prefetcht0 64(%%r14); movq %2,%5; addq $256,%2;"
+#define COMPUTE_m16n24_LINIT \
+    INIT_m16n24 COMPUTE_m16n24_BODY("2451616") SAVE_p_m16n24_L_direct SAVE_p_m16n24_R_wscr
+#define COMPUTE_m16n24_LSAVE \
+    INIT_m16n24 COMPUTE_m16n24_BODY("2471616") SAVE_p_m16n24_L_rscr SAVE_p_m16n24_R_wscr
+#define COMPUTE_m16n24_LTAIL \
+    INIT_m16n24 COMPUTE_m16n24_BODY("2441616") SAVE_p_m16n24_L_rscr SAVE_p_m16n24_R_direct
 #define COMPUTE_m16n24_RSAVE \
     INIT_m16n24 "leaq (%2,%3,8),%2; leaq (%2,%3,4),%2;"\
-    "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15; movq %2,%5;"\
-    "cmpq $16,%4; jb 24616162f; movq $16,%4;"\
-    "24616161:\n\t"\
-    KERNEL_k1m16n24 "addq $4,%4; testq $12,%4; movq $172,%%r10; cmovz %3,%%r10;"\
-    KERNEL_k1m16n24 "prefetcht1 -64(%5); leaq -129(%5,%%r10,1),%5;"\
-    KERNEL_k1m16n24 "prefetcht1 (%6); addq $32,%6; cmpq $208,%4; cmoveq %2,%5;"\
-    KERNEL_k1m16n24 "cmpq %4,%%r13; jnb 24616161b;"\
-    "movq %2,%5; negq %4; leaq 16(%%r13,%4,1),%4;"\
-    "24616162:\n\t"\
-    "testq %4,%4; jz 24616164f; movq %7,%%r10;"\
-    "24616163:\n\t"\
-    "prefetcht0 -64(%5); prefetcht0 (%5); prefetcht0 63(%5); addq %3,%5;"\
-    KERNEL_k1m16n24 "prefetcht0 (%%r10); addq $64,%%r10; decq %4; jnz 24616163b;"\
-    "24616164:\n\t"\
-    "prefetcht0 (%%r14); prefetcht0 64(%%r14); movq %2,%5; addq $64,%2;"\
-    unit_save_m16n2_rscr(%%zmm20,%%zmm21,0) unit_save_m16n2_rscr(%%zmm22,%%zmm23,128) unit_save_m16n2_rscr(%%zmm24,%%zmm25,256)\
-    unit_save_m16n2_rscr(%%zmm26,%%zmm27,384) unit_save_m16n2_rscr(%%zmm28,%%zmm29,512) unit_save_m16n2_rscr(%%zmm30,%%zmm31,640)\
-    unit_save_m16n2_wscr(%%zmm8,%%zmm9,0) unit_save_m16n2_wscr(%%zmm10,%%zmm11,128) unit_save_m16n2_wscr(%%zmm12,%%zmm13,256)\
-    unit_save_m16n2_wscr(%%zmm14,%%zmm15,384) unit_save_m16n2_wscr(%%zmm16,%%zmm17,512) unit_save_m16n2_wscr(%%zmm18,%%zmm19,640)\
+    COMPUTE_m16n24_BODY("2461616") SAVE_p_m16n24_R_rscr SAVE_p_m16n24_L_wscr\
     "negq %3; leaq (%2,%3,8),%2; leaq (%2,%3,4),%2; negq %3;"
-#define COMPUTE_m16n24_LINIT \
-    INIT_m16n24\
-    "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15; movq %2,%5;"\
-    "cmpq $16,%4; jb 24516162f; movq $16,%4;"\
-    "24516161:\n\t"\
-    KERNEL_k1m16n24 "addq $4,%4; testq $12,%4; movq $84,%%r10; cmovz %3,%%r10;"\
-    KERNEL_k1m16n24 "prefetcht1 (%5); leaq -63(%5,%%r10,1),%5;"\
-    KERNEL_k1m16n24 "prefetcht1 (%6); addq $32,%6; cmpq $208,%4; cmoveq %2,%5;"\
-    KERNEL_k1m16n24 "cmpq %4,%%r13; jnb 24516161b;"\
-    "movq %2,%5; negq %4; leaq 16(%%r13,%4,1),%4;"\
-    "24516162:\n\t"\
-    "testq %4,%4; jz 24516164f; movq %7,%%r10;"\
-    "24516163:\n\t"\
-    "prefetcht0 (%5); prefetcht0 63(%5); addq %3,%5;"\
-    KERNEL_k1m16n24 "prefetcht0 (%%r10); addq $64,%%r10; decq %4; jnz 24516163b;"\
-    "24516164:\n\t"\
-    "prefetcht0 (%%r14); prefetcht0 64(%%r14); movq %2,%5; addq $64,%2;"\
-    unit_save_m16n2(%%zmm8,%%zmm9) unit_save_m16n2(%%zmm10,%%zmm11) unit_save_m16n2(%%zmm12,%%zmm13)\
-    unit_save_m16n2(%%zmm14,%%zmm15) unit_save_m16n2(%%zmm16,%%zmm17) unit_save_m16n2(%%zmm18,%%zmm19)\
-    unit_save_m16n2_wscr(%%zmm20,%%zmm21,0) unit_save_m16n2_wscr(%%zmm22,%%zmm23,128) unit_save_m16n2_wscr(%%zmm24,%%zmm25,256)\
-    unit_save_m16n2_wscr(%%zmm26,%%zmm27,384) unit_save_m16n2_wscr(%%zmm28,%%zmm29,512) unit_save_m16n2_wscr(%%zmm30,%%zmm31,640)
-#define COMPUTE_m16n24_LTAIL \
-    INIT_m16n24\
-    "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15; movq %2,%5;"\
-    "cmpq $16,%4; jb 24416162f; movq $16,%4;"\
-    "24416161:\n\t"\
-    KERNEL_k1m16n24 "addq $4,%4; testq $4,%4; movq $126,%%r10; cmovz %3,%%r10;"\
-    KERNEL_k1m16n24 "prefetcht1 -64(%5); prefetcht1 (%5); leaq -63(%5,%%r10,1),%5;"\
-    KERNEL_k1m16n24 "prefetcht1 (%6); addq $32,%6; cmpq $208,%4; cmoveq %2,%5;"\
-    KERNEL_k1m16n24 "cmpq %4,%%r13; jnb 24416161b;"\
-    "movq %2,%5; negq %4; leaq 16(%%r13,%4,1),%4;"\
-    "24416162:\n\t"\
-    "testq %4,%4; jz 24416164f; movq %7,%%r10;"\
-    "24416163:\n\t"\
-    "prefetcht0 -64(%5); prefetcht0 (%5); prefetcht0 63(%5); prefetcht0 -64(%5,%3,1); prefetcht0 (%5,%3,1); prefetcht0 63(%5,%3,1); leaq (%5,%3,2),%5;"\
-    KERNEL_k1m16n24 "prefetcht0 (%%r10); addq $64,%%r10; decq %4; jnz 24416163b;"\
-    "24416164:\n\t"\
-    "prefetcht0 (%%r14); prefetcht0 64(%%r14); movq %2,%5; addq $64,%2;"\
-    unit_save_m16n2_rscr(%%zmm8,%%zmm9,0) unit_save_m16n2_rscr(%%zmm10,%%zmm11,128) unit_save_m16n2_rscr(%%zmm12,%%zmm13,256)\
-    unit_save_m16n2_rscr(%%zmm14,%%zmm15,384) unit_save_m16n2_rscr(%%zmm16,%%zmm17,512) unit_save_m16n2_rscr(%%zmm18,%%zmm19,640)\
-    unit_save_m16n2(%%zmm20,%%zmm21) unit_save_m16n2(%%zmm22,%%zmm23) unit_save_m16n2(%%zmm24,%%zmm25)\
-    unit_save_m16n2(%%zmm26,%%zmm27) unit_save_m16n2(%%zmm28,%%zmm29) unit_save_m16n2(%%zmm30,%%zmm31)
 #define COMPUTE_m16n24_RTAIL \
-    INIT_m16n24\
-    "movq %%r13,%4; movq %%r14,%1; leaq (%1,%%r12,2),%%r15; addq %%r12,%%r15; movq %2,%5;"\
-    "cmpq $16,%4; jb 24416162f; movq $16,%4;"\
-    "24416161:\n\t"\
-    KERNEL_k1m16n24 "addq $4,%4; testq $4,%4; movq $126,%%r10; cmovz %3,%%r10;"\
-    KERNEL_k1m16n24 "prefetcht1 -64(%5); prefetcht1 (%5); leaq -63(%5,%%r10,1),%5;"\
-    KERNEL_k1m16n24 "prefetcht1 (%6); addq $32,%6; cmpq $208,%4; cmoveq %2,%5;"\
-    KERNEL_k1m16n24 "cmpq %4,%%r13; jnb 24416161b;"\
-    "movq %2,%5; negq %4; leaq 16(%%r13,%4,1),%4;"\
-    "24416162:\n\t"\
-    "testq %4,%4; jz 24416164f; movq %7,%%r10;"\
-    "24416163:\n\t"\
-    "prefetcht0 -64(%5); prefetcht0 (%5); prefetcht0 63(%5); prefetcht0 -64(%5,%3,1); prefetcht0 (%5,%3,1); prefetcht0 63(%5,%3,1); leaq (%5,%3,2),%5;"\
-    KERNEL_k1m16n24 "prefetcht0 (%%r10); addq $64,%%r10; decq %4; jnz 24416163b;"\
-    "24416164:\n\t"\
-    "prefetcht0 (%%r14); prefetcht0 64(%%r14); movq %2,%5; addq $64,%2;"\
-    unit_save_m16n2(%%zmm8,%%zmm9) unit_save_m16n2(%%zmm10,%%zmm11) unit_save_m16n2(%%zmm12,%%zmm13)\
-    unit_save_m16n2(%%zmm14,%%zmm15) unit_save_m16n2(%%zmm16,%%zmm17) unit_save_m16n2(%%zmm18,%%zmm19)\
-    unit_save_m16n2_rscr(%%zmm20,%%zmm21,0) unit_save_m16n2_rscr(%%zmm22,%%zmm23,128) unit_save_m16n2_rscr(%%zmm24,%%zmm25,256)\
-    unit_save_m16n2_rscr(%%zmm26,%%zmm27,384) unit_save_m16n2_rscr(%%zmm28,%%zmm29,512) unit_save_m16n2_rscr(%%zmm30,%%zmm31,640)
+    INIT_m16n24 COMPUTE_m16n24_BODY("2431616") SAVE_p_m16n24_L_direct SAVE_p_m16n24_R_rscr
 
 /* m = 8 *//* zmm0 for alpha, zmm1-2 for perm words, zmm4-7 for temporary use, zmm8-19 for accumulators */
 #define KERNEL_k1m8n1 \
@@ -507,11 +497,24 @@ gemm_kernel_pre(long m, long n, long k, float alpha, float * __restrict__ A, flo
     int32_t shuff[16] = {0,16,1,17,2,18,3,19,4,20,5,21,6,22,7,23};
     long n_count = n;
     float *a_pointer = A,*b_pointer = B,*c_pointer = C,*ctemp = C,*next_b = B;
-#if defined(__clang__)
+    // COMPUTE_n24 (the software-pipelined LSAVE/RSAVE m16 loop) is now
+    // correct -- its save macros had been inherited verbatim from upstream
+    // OpenBLAS and never adapted to the propagated layout, so they emitted a
+    // canonical column-major footprint and left part of the propagated one
+    // unwritten. They have been re-derived at n4-group granularity (see the
+    // unit_save_m16n4_{r,w}scr comment above) and verified bit-identical to
+    // COMPUTE(24) over 2025 kernel shapes and the 15-case x 9-thread driver
+    // sweep.
+    //
+    // COMPUTE(24) is nevertheless kept as the active path: measured in
+    // isolation, the two are indistinguishable (44.4 GFLOP/s on every k=448
+    // shape tried), and at small k the pipelined path is ~1-4% SLOWER, in both
+    // this kernel and the canonical one. Pipelining exists upstream to merge
+    // 64 B column-strided stores into 128 B ones; the propagated layout already
+    // stores 256 B fully-contiguous per (m16 x n4) tile, so there is nothing
+    // left for it to recover. Keeping both kernels on COMPUTE(24) is therefore
+    // a measured choice, not a workaround.
     for(;n_count>23;n_count-=24) COMPUTE(24)
-#else
-    for(;n_count>23;n_count-=24) COMPUTE_n24
-#endif    
     for(;n_count>19;n_count-=20) COMPUTE(20)
     for(;n_count>15;n_count-=16) COMPUTE(16)
     for(;n_count>11;n_count-=12) COMPUTE(12)

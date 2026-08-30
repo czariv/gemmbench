@@ -1,7 +1,10 @@
 # Compiler, Assembler, Debugger
-CC := clang
-AS := clang
+CC := gcc
+AS := gcc
 GDB := gdb
+
+# level3_seq.c uses OpenMP for the constrained-parallel is-loop
+LDFLAGS += -fopenmp
 
 # Default directories
 ifeq ($(DRIVERDIR),)
@@ -36,7 +39,7 @@ ifeq ($(NEED_KERNELDIR),yes)
 		GEMM_Q := $(shell jq -r '.tiling.GEMM_Q' $(CONFIGFILE))
 		GEMM_R := $(shell jq -r '.tiling.GEMM_R' $(CONFIGFILE))
 
-		CFLAGS += -fPIC -g -O3 -march=skylake-avx512 -Wall -Wextra \
+		CFLAGS += -fPIC -g -O3 -march=skylake-avx512 -Wall -Wextra -fopenmp \
 			-I${DRIVERDIR} -I${KERNELDIR} \
 			-DTYPE=$(TYPE) \
 			-DBUFFER_SIZE=$(BUFFER_SIZE) \
@@ -50,9 +53,11 @@ ifeq ($(NEED_KERNELDIR),yes)
 		ifeq ($(DEBUG), 1)
 			CFLAGS += -DTIME
 		else ifeq ($(DEBUG), 2)
-			CFLAGS += -DTIME -DDEBUG
+			CFLAGS += -DTIME -DPERF
 		else ifeq ($(DEBUG), 3)
 			CFLAGS += -DTIME -DPERF -DDEBUG
+		else ifeq ($(DEBUG), 4)
+			CFLAGS += -DSPEEDUP
 		endif
 
 		# Source files for driver and kernel
@@ -69,7 +74,8 @@ ifeq ($(NEED_KERNELDIR),yes)
 			COMMON_SRCS += \
 				${DRIVERDIR}/interface_seq.c \
 				${DRIVERDIR}/level3_seq.c \
-				$(KERNELDIR)/gemm_kernel_pre.c
+				$(KERNELDIR)/gemm_kernel_pre.c \
+				$(KERNELDIR)/gemm_kernel_pre_stride.c
 		endif
 	endif
 endif
@@ -81,7 +87,7 @@ ifeq ($(MODE),lib)
 else ifeq ($(MODE),exe)
 	TARGET := $(TARGET_EXE)
 	ifneq ($(SEQ),)
-		SRCS := ./main_sequential.c $(COMMON_SRCS)
+		SRCS := ./main_seq.c $(COMMON_SRCS)
 	else
 		SRCS := ./main.c $(COMMON_SRCS)
 	endif
@@ -89,7 +95,7 @@ else
 	# Default to executable mode
 	TARGET := $(TARGET_EXE)
 	ifneq ($(SEQ),)
-		SRCS := ./main_sequential.c $(COMMON_SRCS)
+		SRCS := ./main_seq.c $(COMMON_SRCS)
 	else
 		SRCS := ./main.c $(COMMON_SRCS)
 	endif

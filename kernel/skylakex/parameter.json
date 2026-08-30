@@ -10,7 +10,7 @@
     },
     "params": {
         "TYPE": "float",
-        "BUFFER_SIZE": 33554432,
+        "BUFFER_SIZE": 134217728,
         "EVAL_THRESHOLD": 0.001
     }
 }

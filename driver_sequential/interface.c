@@ -36,6 +36,72 @@ int ocopy_notrans_op(long M, long N, float *A, long LDA, int X, int Y, float *BU
     return GEMM_ONCOPY(M, N, panel_start, LDA, BUFFER); 
 }
 
+// gemm_buf: identical to gemm() but takes caller-owned sa/sb scratch buffers
+// instead of malloc/free-ing BUFFER_SIZE bytes on every call. Lets benchmark
+// harnesses hoist the allocation outside the timed region; sa and sb must be
+// GEMM_SB_OFFSET_BYTES and (BUFFER_SIZE - GEMM_SB_OFFSET_BYTES) bytes
+// respectively, laid out contiguously exactly like gemm()'s own split below
+// (see GEMM_SB_OFFSET_BYTES in interface.h).
+void gemm_buf(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB,
+           int M, int N, int K,
+           float alpha,
+           const float *a, int ldA,
+           const float *b, int ldB,
+           float beta,
+           float *c, int ldC,
+           float *sa, float *sb){
+    arg_t args;
+    copy_op_func_t copy_a;
+    copy_op_func_t copy_b;
+
+    if (Order == CblasColMajor) {
+        args.m = M;
+        args.n = N;
+        args.k = K;
+
+        args.a = (void *)a;
+        args.b = (void *)b;
+        args.c = (void *)c;
+
+        args.lda = ldA;
+        args.ldb = ldB;
+        args.ldc = ldC;
+
+        if (TransA == CblasNoTrans) copy_a = icopy_notrans_op;
+        if (TransA == CblasTrans)   copy_a = icopy_trans_op;
+
+        if (TransB == CblasNoTrans) copy_b = ocopy_notrans_op;
+        if (TransB == CblasTrans)   copy_b = ocopy_trans_op;
+    } else if (Order == CblasRowMajor) {
+        args.m = N;
+        args.n = M;
+        args.k = K;
+
+        args.a = (void *)b;
+        args.b = (void *)a;
+        args.c = (void *)c;
+
+        args.lda = ldB;
+        args.ldb = ldA;
+        args.ldc = ldC;
+
+        if (TransB == CblasNoTrans) copy_a = icopy_notrans_op;
+        if (TransB == CblasTrans)   copy_a = icopy_trans_op;
+
+        if (TransA == CblasNoTrans) copy_b = ocopy_notrans_op;
+        if (TransA == CblasTrans)   copy_b = ocopy_trans_op;
+    }
+
+    args.alpha = alpha;
+    args.beta  = beta;
+
+    if ((args.m == 0) || (args.n == 0)) return;
+
+    gemm_tiling(&args, NULL, NULL, sa, sb, copy_a, copy_b);
+
+    return;
+}
+
 void gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB,
            int M, int N, int K,
            float alpha,
@@ -95,7 +161,7 @@ void gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const
     buffer = (float *) malloc( BUFFER_SIZE );
     
     sa = (float *)( buffer );
-    sb = (float *)( (long) sa + (BUFFER_SIZE/SIZE)/2 );
+    sb = (float *)( (char *) sa + GEMM_SB_OFFSET_BYTES );
 
     gemm_tiling(&args, NULL, NULL, sa, sb, copy_a, copy_b);
 

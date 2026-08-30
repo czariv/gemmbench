@@ -1,10 +1,19 @@
 #ifndef __INTERFACE_H__
 #define __INTERFACE_H__
 
-#define EXTRACT_FLOAT(v) RISCV_RVV(vfmv_f_s_f32m1_f32)(v)
+#define EXTRACT_FLOAT(v) (v)
 #ifndef TYPE
     #define TYPE float
 #endif
+
+#ifdef __AVX512F__
+    #define SIMD_VECTOR_SIZE 16
+    #define SIMD_ALIGN 64
+#else
+    #define SIMD_VECTOR_SIZE 8
+    #define SIMD_ALIGN 32
+#endif
+
 
 #ifndef ZERO
     #define ZERO 0
@@ -31,12 +40,35 @@
 #endif
 
 #ifndef BUFFER_SIZE
-    #define BUFFER_SIZE (32 << 20)
+    // 128MB, matching real OpenBLAS's x86_64 default (common_x86_64.h:
+    // "#define BUFFER_SIZE (32 << 22)") so LP-GEMM and the linked reference
+    // OpenBLAS run under the same pack-scratch budget. Real OpenBLAS's own
+    // RISC-V default (common_riscv64.h) is 32MB -- the riscv64/riscv64_128
+    // kernel parameter.json files already set BUFFER_SIZE=33554432 to match
+    // that, so this x86-oriented fallback only applies when nothing
+    // platform-specific overrides it.
+    #define BUFFER_SIZE (32 << 22)
 #endif
 
 #ifndef SIZE
     #define SIZE sizeof(TYPE)
 #endif
+
+// sb's offset from sa within a BUFFER_SIZE-sized sa/sb block. Sized to A's
+// actual packed-panel need (GEMM_P*GEMM_Q floats -- this codebase's mc*kc)
+// rather than a naive half-split of BUFFER_SIZE, mirroring real OpenBLAS's
+// own split in interface/gemm.c ("sb = sa + (GEMM_P*GEMM_Q*COMPSIZE*SIZE,
+// aligned)"): B gets essentially the whole rest of the buffer, since B's
+// packed panel (up to GEMM_Q*GEMM_R floats) is normally far larger than A's.
+// Anyone splitting a BUFFER_SIZE-sized allocation into sa/sb -- gemm()/
+// gemm_seq() internally, or a caller using gemm_buf()/gemm_seq_buf() with
+// its own buffer -- should use this macro so sa and sb stay consistent
+// everywhere. Byte-granular pointer arithmetic only ((char*), never a raw
+// integer added to a cast (long) address) to avoid conflating a float count
+// with a byte offset.
+#define GEMM_SB_OFFSET_BYTES \
+    ((((long)(GEMM_P) * (long)(GEMM_Q) * (long)SIZE) + (SIMD_ALIGN - 1)) \
+     & ~((long)SIMD_ALIGN - 1))
 
 #ifndef EVAL_THRESHOLD
     #define EVAL_THRESHOLD 0.001
@@ -44,6 +76,7 @@
 
 #define KERNEL_FUNC gemm_kernel
 #define KERNEL_FUNC_PRE gemm_kernel_pre
+#define KERNEL_FUNC_PRE_STRIDE gemm_kernel_pre_stride
 #define GEMM_INCOPY generic_icopy
 #define GEMM_ITCOPY gemm_icopy
 #define GEMM_ONCOPY gemm_ocopy
@@ -87,7 +120,16 @@ void gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const
            float beta,
            float *c, int ldC);
 
-int gemm_tiling(arg_t *args, 
+void gemm_buf(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB,
+           int M, int N, int K,
+           float alpha,
+           const float *a, int ldA,
+           const float *b, int ldB,
+           float beta,
+           float *c, int ldC,
+           float *sa, float *sb);
+
+int gemm_tiling(arg_t *args,
            long *range_m, long *range_n, 
            float *sa, float *sb,
            copy_op_func_t copy_a_func,
@@ -107,16 +149,30 @@ void gemm_seq(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, c
            const float *a, int ldA,
            const float *b, int ldB,
            float beta,
-           float *c, int ldC);
+           float *c, int ldC,
+           int TileN, int StrideN);
 
-int gemm_tiling_seq(arg_t *args, 
+void gemm_seq_buf(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB, const enum CBLAS_SEQ Seq,
+           int M, int N, int K,
+           float alpha,
+           const float *a, int ldA,
+           const float *b, int ldB,
+           float beta,
+           float *c, int ldC,
+           int TileN, int StrideN,
+           float *sa, float *sb);
+
+int gemm_tiling_seq(arg_t *args,
            long *range_m, long *range_n, 
            float *sa, float *sb,
            copy_op_func_t copy_a_func,
            copy_op_func_t copy_b_func,
            kernel_op_func_t kernel_func,
-           const enum CBLAS_SEQ Seq);
+           const enum CBLAS_SEQ Seq,
+           int TileN, int StrideN);
 
 int gemm_kernel_pre(long M, long N, long K, float alpha, float* A, float* B, float* C, long ldc);
+
+int gemm_kernel_pre_stride(long M, long N, long K, float alpha, float* A, float* B, float* C, long ldc);
 
 #endif

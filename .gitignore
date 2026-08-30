@@ -2,3 +2,8 @@
 *.swp
 gemmvbench
 .vscode
+*.so
+
+# Ad hoc benchmark output dumped at repo root by scratch runs
+*.csv
+*.txt
